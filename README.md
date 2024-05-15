@@ -8,3 +8,5 @@ Under settings, there are options that allow you:
  * Set oldest to newest or newest to oldest.
 
 Bug reports and feature suggestions welcome, but I would like to keep this lightweight.
+
+I originally wrote this as a pull to custom-scripts but it was [quite reasonably] pushed back due to the scale/complexityo of changes. They will run together, just hide one image feed or the other.
