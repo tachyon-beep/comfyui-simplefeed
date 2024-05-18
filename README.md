@@ -15,11 +15,10 @@ Examples:
 ![demo3](https://github.com/tachyon-beep/comfyui-simplefeed/assets/544926/def2656f-e37b-41b7-857a-aebfef037a8d)
 
 INSTALL:
-1a. Git pull the contents of the repo into a subfolder in the custom_nodes folder or install.
-OR
-1b. Create a subfolder and extract the contents of the repository into it.
-OR
-1.c Use the install vai Git URL button created by ComfyUI Manager.
+1. Do one of:
+   - Git pull the contents of the repo into a subfolder in the custom_nodes folder or install OR
+   - Create a subfolder and extract the contents of the repository into it OR
+   - Use the install via Git URL button created by ComfyUI Manager.
 
 2. Restart your install.
 
