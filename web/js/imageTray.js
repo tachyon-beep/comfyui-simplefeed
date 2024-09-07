@@ -644,7 +644,7 @@ app.registerExtension({
 		}
 		function onDomReady() {
 			const feedVisible = app.ui.settings.addSetting({
-				id: "simpleTray.simpleTray.TrayVisible",
+				id: "simpleTray.imageTray.TrayVisible",
 				name: "📥 Display Image Tray",
 				type: "boolean",
 				checked: getJSONVal("Visible", true), 
@@ -657,7 +657,7 @@ app.registerExtension({
 			});
 
 			const feedDirectionSetting = app.ui.settings.addSetting({
-				id: "simpleTray.simpleTray.NewestFirst",
+				id: "simpleTray.imageTray.NewestFirst",
 				name: "📥 Image Tray Sort Order",
 				defaultValue: "newest",
 				type: "combo",
@@ -673,7 +673,7 @@ app.registerExtension({
 			});
 
 			const feedLengthSetting = app.ui.settings.addSetting({
-				id: "simpleTray.simpleTray.MaxFeedLength",
+				id: "simpleTray.imageTray.MaxFeedLength",
 				name: "📥 Max Batches In Feed",
 				defaultValue: 25,
 				type: "number",
@@ -690,7 +690,7 @@ app.registerExtension({
 			});
 
 			const feedHeightSetting = app.ui.settings.addSetting({
-				id: "simpleTray.simpleTray.feedHeight",
+				id: "simpleTray.imageTray.feedHeight",
 				name: "📥 Image Tray Height",
 				defaultValue: 300,
 				type: "slider",
@@ -708,7 +708,7 @@ app.registerExtension({
 			});
 
 			const feedLocationSetting = app.ui.settings.addSetting({
-				id: "simpleTray.simpleTray.Location",
+				id: "simpleTray.imageTray.Location",
 				name: "📥 Image Tray Location",
 				defaultValue: "bottom",
 				type: "combo",
