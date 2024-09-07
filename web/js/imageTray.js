@@ -252,7 +252,7 @@ $el("style", {
 });
 
 app.registerExtension({
-	name: "tb.ImageFeed",
+	name: "simpleTray.ImageFeed",
 	async setup() {
 		let visible = true;
 
@@ -280,7 +280,7 @@ app.registerExtension({
 		}
 		*/
 
-		const prefix = "tb.ImageFeed.";
+		const prefix = "simpleTray.ImageFeed.";
 		const comfyPrefix = "Comfy.Settings." + prefix;
 
 		//Legacy getter and setter - for accessing the settings from the menu setting system.
@@ -436,7 +436,7 @@ app.registerExtension({
 				selectedNodeIds = selectedNodeIds.filter(id => id !== nodeId);
 			}
 
-			localStorage.setItem("tb.ImageFeed.NodeFilter", JSON.stringify(selectedNodeIds));
+			localStorage.setItem("simpleTray.ImageFeed.NodeFilter", JSON.stringify(selectedNodeIds));
 		}
 
 		function loadModal() {
@@ -644,7 +644,7 @@ app.registerExtension({
 		}
 		function onDomReady() {
 			const feedVisible = app.ui.settings.addSetting({
-				id: "tb.ImageTray.TrayVisible",
+				id: "simpleTray.simpleTray.TrayVisible",
 				name: "📥 Display Image Tray",
 				type: "boolean",
 				checked: getJSONVal("Visible", true), 
@@ -657,7 +657,7 @@ app.registerExtension({
 			});
 
 			const feedDirectionSetting = app.ui.settings.addSetting({
-				id: "tb.ImageTray.NewestFirst",
+				id: "simpleTray.simpleTray.NewestFirst",
 				name: "📥 Image Tray Sort Order",
 				defaultValue: "newest",
 				type: "combo",
@@ -673,7 +673,7 @@ app.registerExtension({
 			});
 
 			const feedLengthSetting = app.ui.settings.addSetting({
-				id: "tb.ImageTray.MaxFeedLength",
+				id: "simpleTray.simpleTray.MaxFeedLength",
 				name: "📥 Max Batches In Feed",
 				defaultValue: 25,
 				type: "number",
@@ -690,7 +690,7 @@ app.registerExtension({
 			});
 
 			const feedHeightSetting = app.ui.settings.addSetting({
-				id: "tb.ImageTray.feedHeight",
+				id: "simpleTray.simpleTray.feedHeight",
 				name: "📥 Image Tray Height",
 				defaultValue: 300,
 				type: "slider",
@@ -708,7 +708,7 @@ app.registerExtension({
 			});
 
 			const feedLocationSetting = app.ui.settings.addSetting({
-				id: "tb.ImageTray.Location",
+				id: "simpleTray.simpleTray.Location",
 				name: "📥 Image Tray Location",
 				defaultValue: "bottom",
 				type: "combo",
