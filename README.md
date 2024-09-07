@@ -25,5 +25,7 @@ INSTALL:
 
 2. Restart ComfyUI.
 
+3. If you are using the new UI, go to the settings and under simpleTray toggle the Display Image Tray button. I'll fix this in the near future.
+
 UNINSTALL:
 1. Delete the custom_nodes/comfyui-simplefeed folder from your ComfyUI install and restart ComfyUI.
