@@ -1,5 +1,4 @@
-﻿
-import { api } from "../../../scripts/api.js";
+﻿import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { $el } from "../../../scripts/ui.js";
 import { lightbox } from "./common/lightbox.js";
@@ -7,45 +6,46 @@ import { lightbox } from "./common/lightbox.js";
 $el("style", {
 	textContent: `
 		:root {
-			--background-color-main: rgb(36, 39, 48);
-			--separator-color: yellow;
-			--separator-width: 2px;
-			--border-color: #ccc; 
-			--input-bg-color: #eee; 
-			--text-color: #333; 
-			--highlight-filter: brightness(1.2);
-			--feed-height: 300px; 
-			--feed-width: 100%; 
+			--tb-background-color-main: rgb(36, 39, 48);
+			--tb-separator-color: yellow;
+			--tb-separator-width: 2px;
+			--tb-border-color: #ccc; 
+			--tb-input-bg-color: #eee; 
+			--tb-text-color: #333; 
+			--tb-highlight-filter: brightness(1.2);
+			--tb-feed-height: 300px; 
+			--tb-feed-width: 100%; 
+			--tb-left-offset: 0px;
 		}
 
 		.tb-image-feed {
 			position: fixed;
 			display: flex;
-			background-color: var(--background-color-main);
+			background-color: var(--tb-background-color-main);
 			padding: 5px;
-			z-index: 500;  
+			z-index: 500;
 			transition: all 0.3s ease;
-			border: 1px solid var(--border-color);
-			height: var(--feed-height);
-			width: 100%;
-
+			border: 1px solid var(--tb-border-color);
+			height: var(--tb-feed-height);
+			width: calc(100% - var(--tb-left-offset));
+			left: var(--tb-left-offset);
 		}
 
-		.tb-image-feed--bottom {
-			left: 0;
+		.tb-image-feed.tb-image-feed--bottom {
+			left: var(--tb-left-offset);
 			right: 0;
 			flex-direction: row;
 			bottom: 0;
 		}
 
-		.tb-image-feed--top {
-			left: 0;
+		.tb-image-feed.tb-image-feed--top {
+			left: var(--tb-left-offset);
 			right: 0;
 			flex-direction: row;
 			top: 0;
 		}
 
-		.tb-image-feed-list {
+		.tb-image-feed .tb-image-feed-list {
 			display: flex;
 			flex-direction: row; 
 			gap: 4px;
@@ -62,11 +62,11 @@ $el("style", {
 			z-index: 501;
 		}
 
-		.tb-image-feed-list > * {
+		.tb-image-feed .tb-image-feed-list > * {
 			flex-shrink: 0;
 		}	
 
-		.image-batch-container {
+		.tb-image-feed .image-batch-container {
 			display: flex;
 			flex-direction: row;
 			gap: 2px;
@@ -78,38 +78,38 @@ $el("style", {
 			flex-wrap: nowrap; 
 		}
 
-		.image-container {
+		.tb-image-feed .image-container {
 			display: flex;
 			justify-content: center;
 			align-items: center;
 			overflow: hidden;
 			max-height: inherit;
 			height: inherit;
-			z-index: 501; /* For some reason some text controls have a zindex of 100??? */
+			z-index: 501;
 		}
 
-		.image-container a {
+		.tb-image-feed .image-container a {
 			display: flex; 
 			max-height: inherit; 
 			height: inherit;
 		}		
 
-		.image-container img {
+		.tb-image-feed .image-container img {
 			max-height: inherit; 
 			height: inherit;
 			width: auto;
 			object-fit: contain; 
 		}
 
-		.image-feed-vertical-bar {
+		.tb-image-feed .image-feed-vertical-bar {
 			height: 100%;
 			width: 4px;
 			background-color: yellow;
-			display: inline-block
-			z-index: 502; /*For some reason some text controls have a zindex of 100??? */
+			display: inline-block;
+			z-index: 502;
 		}
 
-		.tb-image-feed-btn-group {
+		.tb-image-feed .tb-image-feed-btn-group {
 			position: fixed;
 			bottom: 10px;
 			right: 10px;
@@ -120,22 +120,22 @@ $el("style", {
 			gap: 5px; 
 			height: auto;
 			width: auto;
-			z-index:502;
+			z-index: 502;
 		}
 
-		.tb-image-feed-btn-group--top {
+		.tb-image-feed .tb-image-feed-btn-group.tb-image-feed-btn-group--top {
 			bottom: unset;
 			top: 5px;
 			right: 40px;
 		}
 
-		.tb-image-feed-btn-group--bottom {
+		.tb-image-feed .tb-image-feed-btn-group.tb-image-feed-btn-group--bottom {
 			bottom: 30px;
 			right: 10px;
 			top: unset;
 		}
 
-		.tb-image-feed-btn {
+		.tb-image-feed .tb-image-feed-btn {
 			padding: 0 10px;
 			font-size: 16px;
 			height: 40px;
@@ -143,23 +143,23 @@ $el("style", {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			border: 1px solid var(--border-color);
+			border: 1px solid var(--tb-border-color);
 			border-radius: 5px;
 			background-color: white; 
-			color: var(--text-color);
+			color: var(--tb-text-color);
 			cursor: pointer;
 		}
 
-		.tb-image-feed-btn:hover {
-			filter: var(--highlight-filter);
+		.tb-image-feed .tb-image-feed-btn:hover {
+			filter: var(--tb-highlight-filter);
 		}
 
-		.tb-image-feed-btn:active {
+		.tb-image-feed .tb-image-feed-btn:active {
 			position: relative;
 			top: 1px;
 		}
 
-		.tb-close-btn {
+		.tb-image-feed .tb-close-btn {
 			position: absolute;
 			top: 5px;
 			right: 10px;
@@ -170,18 +170,18 @@ $el("style", {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			border: 1px solid var(--border-color);
+			border: 1px solid var(--tb-border-color);
 			border-radius: 5px;
-			color: var(--text-color);
+			color: var(--tb-text-color);
 			cursor: pointer;
 			z-index: 600;
 		}
 
-		.tb-close-btn:hover {
-			filter: var(--highlight-filter);
+		.tb-image-feed .tb-close-btn:hover {
+			filter: var(--tb-highlight-filter);
 		}
 
-		.tb-close-btn:active {
+		.tb-image-feed .tb-close-btn:active {
 			position: relative;
 			top: 1px;
 		}
@@ -203,7 +203,7 @@ $el("style", {
 			background-color: #000;
 			color: #FFF;
 			padding: 20px;
-			border: 2px solid var(--separator-color);
+			border: 2px solid var(--tb-separator-color);
 			border-radius: 10px;
 			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 			position: fixed;
@@ -241,7 +241,6 @@ $el("style", {
 		}
 
 		.custom-label {
-			/* Assuming default color is white and gets greyed out when disabled */
 			color: #FFF;
 		}
 
@@ -252,46 +251,19 @@ $el("style", {
 });
 
 app.registerExtension({
-	name: "simpleTray.ImageFeed",
+	name: "simpleTray.imageFeed",
 	async setup() {
 		let visible = true;
 
-		/*
-		const showButton = $el("button.comfy-settings-btn", {
-			textContent: "📥",
-			id: "imageTrayShowButton",
-			style: {
-				right: "16px",
-				cursor: "pointer",
-				display: "none",
-			},
-		});
+		const prefix = "simpleTray.imageFeed.";
 
-		let showMenuButton;
-		if (!app.menu?.element.style.display && app.menu?.settingsGroup) {
-			showMenuButton = new (await import("../../../scripts/ui/components/button.js")).ComfyButton({
-				icon: "image-multiple",
-				action: () => showButton.click(),
-				tooltip: "Show Image Tray 📥",
-				content: "Show Image Tray 📥",
-			});
-			showMenuButton.enabled = false;
-			app.menu.settingsGroup.append(showMenuButton);
-		}
-		*/
-
-		const prefix = "simpleTray.ImageFeed.";
-		const comfyPrefix = "Comfy.Settings." + prefix;
-
-		//Legacy getter and setter - for accessing the settings from the menu setting system.
 		const getVal = (n, d) => {
-			const v = localStorage.getItem(comfyPrefix + n);
+			const v = localStorage.getItem(prefix + n);
 
 			if (v === null) {
 				return d;
 			}
-			return v.replace(/^"|"$/g, ''); //Whoever wrote the string handling code in the API - Do you have any idea how long I spent debugging this?
-											//Stupid problems get stupid solutions.
+			return v.replace(/^"|"$/g, '');
 		};
 
 		const saveVal = (n, v) => {
@@ -299,16 +271,13 @@ app.registerExtension({
 			localStorage.setItem(prefix + n, valueToSave);
 		};
 
-
-		const getJSONVal = (n, d) => {
-			const v = localStorage.getItem(prefix + n);
-			if (v === null) {
-				return d;
-			}
+		const getJSONVal = (key, defaultValue) => {
 			try {
-				return JSON.parse(v);
+				const value = localStorage.getItem(prefix + key);
+				return value ? JSON.parse(value) : defaultValue;
 			} catch (error) {
-				return d;
+				logError(`Error retrieving ${key} from localStorage`, error);
+				return defaultValue;
 			}
 		};
 
@@ -316,7 +285,7 @@ app.registerExtension({
 			try {
 				localStorage.setItem(prefix + n, JSON.stringify(v));
 			} catch (error) {
-				console.error("Error saving to localStorage", error);
+				logError("Error saving to localStorage", error);
 			}
 		};
 
@@ -326,7 +295,6 @@ app.registerExtension({
 		const imageList = $el("div", { className: "tb-image-feed-list" });
 		const buttonPanel = $el("div", { className: "tb-image-feed-btn-group" });
 
-		//TODO: Build this list programmatically somehow. In the meantime, update it with image nodes.
 		const eligibleNodes = ['SaveImage', 'PreviewImage', 'KSampler', 'KSampler (Efficient)', 'KSampler Adv. (Efficient)', 'KSampler SDXL (Eff.)'];
 
 		let sortOrder = getJSONVal("SortOrder", "ID");
@@ -339,35 +307,25 @@ app.registerExtension({
 		let currentBatchIdentifier;
 		let currentBatchContainer;
 
+		let resizeListener;
+		let domReadyListener;
+		let executionStartListener;
+		let executedListener;
+
 		const clearButton = $el("button.tb-image-feed-btn.clear-btn", {
 			textContent: "Clear",
 			onclick: () => {
-
 				currentBatchIdentifier = null;
-				currentBatchContainer.replaceChildren(); //Clear the current batch container
-				imageList.replaceChildren();			 //Clear the contents of the imageList.
+				currentBatchContainer.replaceChildren();
+				imageList.replaceChildren();
 				window.dispatchEvent(new Event("resize"));
 			},
 		});
-/*
-		const closeButton = $el("button.tb-close-btn", {
-			textContent: "❌",
-			onclick: () => {
-				visible = false;
-				imageFeed.style.display = "none";
-				showButton.style.display = "unset";
-				saveJSONVal("Visible", visible);
-				window.dispatchEvent(new Event("resize"));
-				if (showMenuButton) {
-					showMenuButton.disabled = false;
-				}
-			},
-		});
-*/
+
 		const nodeFilterButton = $el("button.tb-image-feed-btn.node-filter-btn", {
 			textContent: "Node Filter",
-			onclick: () => {
-				const overlay = loadModal();
+			onclick: async () => {
+				const overlay = await loadModal();
 				createImageNodeList();
 				setNodeSelectorVisibility(true);
 			},
@@ -375,26 +333,26 @@ app.registerExtension({
 
 		function updateControlPositions(feedLocation) {
 			if (!imageFeed) {
-				console.error('Image feed element not found.');
+				logError('Image feed element not found', new Error('Element not found'));
 				return;
 			}
 
 			imageFeed.classList.remove('tb-image-feed--top', 'tb-image-feed--bottom');
+			buttonPanel.classList.remove('tb-image-feed-btn-group--top', 'tb-image-feed-btn-group--bottom');
 
 			if (feedLocation === 'top') {
 				imageFeed.classList.add('tb-image-feed--top');
-			} else if (feedLocation === 'bottom') {
-				imageFeed.classList.add('tb-image-feed--bottom');
-			}
-
-			buttonPanel.classList.remove('tb-image-feed-btn-group--top', 'tb-image-feed-btn-group--bottom')
-
-			if (feedLocation === 'top') {
 				buttonPanel.classList.add('tb-image-feed-btn-group--top');
-			} else if (feedLocation === 'bottom') {
+			} else {
+				imageFeed.classList.add('tb-image-feed--bottom');
 				buttonPanel.classList.add('tb-image-feed-btn-group--bottom');
 			}
-			return;
+
+			// Save the new location to localStorage
+			//saveJSONVal("Location", feedLocation);
+
+			// Call adjustImageTray to set correct positioning and height
+			adjustImageTray();
 		}
 
 		function createElement(type, options = {}) {
@@ -410,21 +368,10 @@ app.registerExtension({
 			}
 			return element;
 		}
+
 		function updateImageNodes() {
 			const nodes = Object.values(app.graph._nodes);
-			const filteredNodes = [];
-			const discardedNodes = [];
-
-			nodes.forEach(node => {
-				if (eligibleNodes.includes(node.type)) {
-					filteredNodes.push(node);
-				} else {
-					discardedNodes.push(node);
-				}
-			});
-
-			imageNodes = filteredNodes;
-			return;
+			imageNodes = nodes.filter(node => eligibleNodes.includes(node.type));
 		}
 
 		function updateSelectedNodeIds(nodeId, isChecked) {
@@ -436,45 +383,50 @@ app.registerExtension({
 				selectedNodeIds = selectedNodeIds.filter(id => id !== nodeId);
 			}
 
-			localStorage.setItem("simpleTray.ImageFeed.NodeFilter", JSON.stringify(selectedNodeIds));
+			saveJSONVal("NodeFilter", selectedNodeIds);
 		}
 
-		function loadModal() {
-			const overlay = loadOverlay();
-
-			let modal = document.getElementById('nodeSelectorPlaceholder');
-			if (!modal) {
-				modal = createElement('div', { id: 'nodeSelectorPlaceholder', classList: ['nodeSelectorPlaceholder'] });
-				overlay.appendChild(modal);
+		async function loadModal() {
+			try {
+				const overlay = await loadOverlay();
+				let modal = document.getElementById('nodeSelectorPlaceholder');
+				if (!modal) {
+					modal = createElement('div', {
+						id: 'nodeSelectorPlaceholder',
+						className: 'nodeSelectorPlaceholder'
+					});
+					overlay.appendChild(modal);
+				}
+				return modal;
+			} catch (error) {
+				logError('Error loading modal', error);
 			}
-			return modal;
 		}
 
 		function loadOverlay() {
-			let overlay = document.getElementById('modalOverlay');
+			return new Promise((resolve, reject) => {
+				let overlay = document.getElementById('modalOverlay');
 
-			if (!overlay) {
-				overlay = createElement('div', { id: 'modalOverlay', classList: ['modalOverlay'] });
-				document.body.appendChild(overlay);
-				overlay.addEventListener('click', event => {
-					if (event.target === overlay) {
-						setNodeSelectorVisibility(false);
-					}
-				});
-			}
+				if (!overlay) {
+					overlay = createElement('div', { id: 'modalOverlay', classList: ['modalOverlay'] });
+					document.body.appendChild(overlay);
+					overlay.addEventListener('click', event => {
+						if (event.target === overlay) {
+							setNodeSelectorVisibility(false);
+						}
+					});
+				}
 
-			return overlay;
+				resolve(overlay);
+			});
 		}
 
 		function toggleFilter() {
-			let filterEnabled = getJSONVal("FilterEnabled", false);
-
-			filterEnabled = !filterEnabled;
+			const filterEnabled = !getJSONVal("FilterEnabled", false);
+			saveJSONVal("FilterEnabled", filterEnabled);
 			filterToggleButton.textContent = filterEnabled ? 'Disable Filter' : 'Enable Filter';
 			sortToggleButton.disabled = !filterEnabled;
-			saveJSONVal("FilterEnabled", filterEnabled);
 			redrawImageNodeList();
-
 		}
 
 		function toggleSortOrder() {
@@ -486,35 +438,18 @@ app.registerExtension({
 		}
 
 		function sortImageNodes() {
-			sortOrder = getJSONVal("SortOrder", "ID");
-
-			if (!imageNodes) {
-				updateImageNodes();
-			}
-
+			const sortOrder = getJSONVal("SortOrder", "ID");
 			imageNodes.sort((a, b) => {
 				if (sortOrder === "Name") {
-					if (a.title < b.title) return -1;
-					if (a.title > b.title) return 1;
-					// Subsort by ID if names are equal
-					return a.id - b.id;
-				} else {
-					return a.id - b.id;
+					return a.title.localeCompare(b.title) || a.id - b.id;
 				}
+				return a.id - b.id;
 			});
 		}
 
 		function redrawImageNodeList() {
-			let listContainer = loadModal();
-			let list = listContainer.querySelector('ul');
-
-			if (!list) {
-				list = createElement('ul', { classList: ['node-list'] });
-				listContainer.appendChild(list);
-			} else {
-				list.innerHTML = '';
-			}
-
+			const listContainer = loadModal();
+			const fragment = document.createDocumentFragment();
 			const filterEnabled = getJSONVal("FilterEnabled", false);
 
 			updateImageNodes();
@@ -522,7 +457,7 @@ app.registerExtension({
 
 			imageNodes.forEach((node, index) => {
 				const listItem = createElement('li', {
-					classList: ['node-list-item', index % 2 === 0 ? 'even' : 'odd']
+					className: `node-list-item ${index % 2 === 0 ? 'even' : 'odd'}`
 				});
 
 				const checkbox = createElement('input', {
@@ -543,8 +478,10 @@ app.registerExtension({
 
 				listItem.appendChild(checkbox);
 				listItem.appendChild(label);
-				list.appendChild(listItem);
+				fragment.appendChild(listItem);
 			});
+
+			listContainer.querySelector('.node-list')?.replaceChildren(fragment);
 
 			let customNodeItem = listContainer.querySelector('.custom-node-item');
 			if (!customNodeItem) {
@@ -567,7 +504,6 @@ app.registerExtension({
 				customNodeItem.appendChild(customLabel);
 				listContainer.appendChild(customNodeItem);
 			} else {
-				//If the custom node item already exists, just update its disabled state
 				const customCheckbox = customNodeItem.querySelector('input[type="checkbox"]');
 				if (customCheckbox) {
 					customCheckbox.disabled = !filterEnabled;
@@ -628,75 +564,28 @@ app.registerExtension({
 
 			redrawImageNodeList(imageNodes, nodeListElement);
 		}
+
 		function setNodeSelectorVisibility(isVisible) {
 			const modal = loadModal();
 			const overlay = loadOverlay();
 
 			if (!isVisible) {
-				//Save the current state when hiding the overlay
-				//There's never been a better time.
 				saveJSONVal("NodeFilter", selectedNodeIds);
 				redrawImageNodeList(imageNodes, loadModal());
 			}
 
 			overlay.style.display = isVisible ? 'flex' : 'none';
-			return;
 		}
+
 		function onDomReady() {
-			const feedVisible = app.ui.settings.addSetting({
-				id: "simpleTray.imageTray.TrayVisible",
-				name: "📥 Display Image Tray",
-				type: "boolean",
-				checked: getJSONVal("Visible", true), 
-				onChange(value) {
-					visible = value;
-					saveJSONVal("Visible", value);
-					changeFeedVisibilility(value);
-				},
-				tooltip: "Change the visibility of the Image Feed.",
-			});
-
-			const feedDirectionSetting = app.ui.settings.addSetting({
-				id: "simpleTray.imageTray.NewestFirst",
-				name: "📥 Image Tray Sort Order",
-				defaultValue: "newest",
-				type: "combo",
-				options: () => [
-					{ text: "newest first", value: "newest" },
-					{ text: "oldest first", value: "oldest" }
-				],
-				onChange: (newOrder) => {
-					//Technically we don't need to do anything.
-					//We query and handle this later on.
-				},
-				tooltip: "Change the order in which images are displayed.",
-			});
-
-			const feedLengthSetting = app.ui.settings.addSetting({
-				id: "simpleTray.imageTray.MaxFeedLength",
-				name: "📥 Max Batches In Feed",
-				defaultValue: 25,
-				type: "number",
-				onChange: (newValue) => {
-					// Technically we don't need to do anything.
-					// We'll remove elements during the executed event.
-				},
-				tooltip: "Maximum number of image batches to retain before the oldest start dropping from image feed.",
-				attrs: {
-					min: '25',
-					max: '200',
-					step: '25',
-				},
-			});
-
 			const feedHeightSetting = app.ui.settings.addSetting({
-				id: "simpleTray.imageTray.feedHeight",
+				id: "simpleTray.imageFeed.feedHeight",
 				name: "📥 Image Tray Height",
 				defaultValue: 300,
 				type: "slider",
 				onChange: (newValue) => {
 					const newHeight = `${newValue}px`;
-					imageFeed.style.setProperty('--feed-height', newHeight);
+					imageFeed.style.setProperty('--tb-feed-height', newHeight);
 					window.dispatchEvent(new Event("resize"));
 				},
 				attrs: {
@@ -707,14 +596,15 @@ app.registerExtension({
 				tooltip: "Adjust the height of the feed display area.",
 			});
 
-			const feedLocationSetting = app.ui.settings.addSetting({
-				id: "simpleTray.imageTray.Location",
-				name: "📥 Image Tray Location",
-				defaultValue: "bottom",
+			// Ensure all settings objects are correctly terminated
+			const feedDirectionSetting = app.ui.settings.addSetting({
+				id: "simpleTray.imageFeed.NewestFirst",
+				name: "📥 Image Tray Sort Order",
+				defaultValue: "newest",
 				type: "combo",
 				options: [
-					{ text: "top", value: "top" },
-					{ text: "bottom", value: "bottom" }
+					{ text: "newest first", value: "newest" },
+					{ text: "oldest first", value: "oldest" }
 				],
 				onChange: (newLocation) => {
 					updateControlPositions(newLocation);
@@ -723,42 +613,78 @@ app.registerExtension({
 				tooltip: "Choose the location of the image feed.",
 			});
 
+			const feedLengthSetting = app.ui.settings.addSetting({
+				id: "simpleTray.imageFeed.MaxFeedLength",
+				name: "📥 Max Batches In Feed",
+				defaultValue: 25,
+				type: "number",
+				onChange: (newValue) => {
+					// Handled during execution
+				},
+				tooltip: "Maximum number of image batches to retain before the oldest start dropping from image feed.",
+				attrs: {
+					min: '25',
+					max: '200',
+					step: '25',
+				},
+			});
+
+			const feedLocationSetting = app.ui.settings.addSetting({
+				id: "simpleTray.imageFeed.Location",
+				name: "📥 Image Tray Location",
+				defaultValue: getJSONVal("Location", "bottom"), // Load the saved location or use "bottom" as default
+				type: "combo",
+				options: [
+					{ text: "top", value: "top" },
+					{ text: "bottom", value: "bottom" }
+				],
+				onChange: (newLocation) => {
+					updateControlPositions(newLocation);
+					saveJSONVal("Location", newLocation); // Save the new location
+				},
+				tooltip: "Choose the location of the image feed.",
+			});
+
+			const feedVisible = app.ui.settings.addSetting({
+				id: "simpleTray.imageFeed.TrayVisible",
+				name: "📥 Display Image Tray",
+				type: "boolean",
+				checked: getJSONVal("Visible", true),
+				onChange(value) {
+					visible = value;
+					saveJSONVal("Visible", value);
+					changeFeedVisibilility(value);
+				},
+				tooltip: "Change the visibility of the Image Feed.",
+			});
+
+			setupEventListeners();
+
+			// Create the image feed
 			imageFeed.append(imageList);
 
-			//This is just the on screen interface.
+			// Create the UI
 			buttonPanel.append(nodeFilterButton);
 			buttonPanel.append(clearButton);
 			imageFeed.append(buttonPanel);
-			//imageFeed.append(closeButton);
 
-			const resizeControl = document.querySelector('.tb-image-feed-resize');
-			const buttonGroup = document.querySelector('.tb-image-feed-btn-group');
+			const initialFeedLocation = getJSONVal("Location", "bottom")
+			console.log("Initial feed location:", initialFeedLocation);
 
-			/*
-			if (showButton) {
-				showButton.onclick = () => {
-					visible = true;
-					saveJSONVal("Visible", visible);
+			updateControlPositions(initialFeedLocation);
 
-					imageFeed.style.display = "block";
-					showButton.style.display = "none";
+			// Log the position immediately after updating
+			console.log("Position after updateControlPositions:",
+				imageFeed.classList.contains('tb-image-feed--top') ? 'top' : 'bottom');
 
-					const showMenuButton = document.querySelector('.show-menu-button');
-					if (showMenuButton) showMenuButton.disabled = true;
+			// Add a small delay and check again
+			setTimeout(() => {
+				console.log("Position after delay:",
+					imageFeed.classList.contains('tb-image-feed--top') ? 'top' : 'bottom');
+			}, 100);
 
-					window.dispatchEvent(new Event("resize"));
-				};
-			}
-			*/
-		}
-		function changeFeedVisibilility(vis) {
-			if (vis == true) {
-				imageFeed.style.display = "block";
-				const showMenuButton = document.querySelector('.show-menu-button');
-			} else {
-				imageFeed.style.display = "none";
-			}
-			window.dispatchEvent(new Event("resize"));
+			// Call adjustImageTray directly after DOM is ready
+			adjustImageTray();
 		}
 
 		if (document.readyState === "loading") {
@@ -767,27 +693,142 @@ app.registerExtension({
 			onDomReady();
 		}
 
-		//document.querySelector(".comfy-settings-btn").after(showButton);
+		function changeFeedVisibilility(vis) {
+			if (vis) {
+				imageFeed.style.display = "flex";
+				adjustImageTray(); // Ensure correct positioning and size
+			} else {
+				imageFeed.style.display = "none";
+			}
+			window.dispatchEvent(new Event("resize"));
+		}
+
 		window.dispatchEvent(new Event("resize"));
 
-		//Check if the feed should be visible on startup.
-		//if (!getJSONVal("Visible", true)) {
-		//	closeButton.onclick();
-		//}
+		async function adjustImageTray() {
+			try {
+				const imageFeed = document.querySelector('.tb-image-feed');
+				const buttonPanel = imageFeed.querySelector('.tb-image-feed-btn-group');
+				if (!imageFeed || !buttonPanel) {
+					console.log('Image feed or button panel not found, skipping adjustment');
+					return;
+				}
 
-		//TODO: If comfyui adds a 'batch finished' event, this should all be refactored.
-		api.addEventListener("execution_start", ({ detail }) => {
-			const filterEnabled = getJSONVal("FilterEnabled", false);
+				const sideToolBar = document.querySelector('.comfyui-body-left .side-tool-bar-container');
+				const comfyuiMenu = document.querySelector('nav.comfyui-menu');
 
-			//If the filter has no nodes selected but enabled is true, set enabled to false.
-			//The design is very human. 
-			if (filterEnabled && (!selectedNodeIds || selectedNodeIds.length === 0)) {
-				saveJSONVal('FilterEnabled', false);
-				return;
+				const toolbarWidth = sideToolBar?.offsetWidth || 0;
+				imageFeed.style.setProperty('--tb-left-offset', `${toolbarWidth}px`);
+				imageFeed.style.width = `calc(100% - ${toolbarWidth}px)`;
+
+				const feedHeight = parseInt(getComputedStyle(imageFeed).getPropertyValue('--tb-feed-height')) || 300;
+				imageFeed.style.height = `${feedHeight}px`;
+
+				const feedLocation = getJSONVal("Location", "bottom");
+				const isFeedAtTop = feedLocation === "top";
+
+				if (comfyuiMenu) {
+					const menuHeight = comfyuiMenu.offsetHeight;
+					const menuRect = comfyuiMenu.getBoundingClientRect();
+					const isMenuAtTop = menuRect.top <= 1;
+					const isMenuAtBottom = Math.abs(window.innerHeight - menuRect.bottom) <= 1;
+
+					if (isFeedAtTop) {
+						imageFeed.style.top = isMenuAtTop ? `${menuHeight}px` : '0';
+						imageFeed.style.bottom = 'auto';
+					} else {
+						imageFeed.style.top = 'auto';
+						imageFeed.style.bottom = isMenuAtBottom ? `${menuHeight}px` : '0';
+					}
+				} else {
+					if (isFeedAtTop) {
+						imageFeed.style.top = '0';
+						imageFeed.style.bottom = 'auto';
+					} else {
+						imageFeed.style.top = 'auto';
+						imageFeed.style.bottom = '0';
+					}
+				}
+
+				// Adjust for side toolbar if it exists
+				if (sideToolBar && isFeedAtTop) {
+					const sideToolBarRect = sideToolBar.getBoundingClientRect();
+					if (sideToolBarRect.top <= 1) {
+						const maxTop = Math.max(parseInt(imageFeed.style.top) || 0, sideToolBarRect.height);
+						imageFeed.style.top = `${maxTop}px`;
+					}
+				}
+
+				// Adjust button panel position
+				if (isFeedAtTop) {
+					const imageFeedTop = parseInt(imageFeed.style.top) || 0;
+					buttonPanel.style.top = `${imageFeedTop + 15}px`;
+					buttonPanel.style.bottom = 'auto';
+				} else {
+					const imageFeedBottom = parseInt(imageFeed.style.bottom) || 0;
+					buttonPanel.style.bottom = `${imageFeedBottom + 30}px`;
+					buttonPanel.style.top = 'auto';
+				}
+
+			} catch (error) {
+				console.error('Error adjusting image tray:', error);
 			}
-		});
+		}
 
-		api.addEventListener("executed", ({ detail }) => {
+		function waitForSideToolbar() {
+			const MAX_OBSERVATION_TIME = 10000; // 10 seconds
+			let timeoutId;
+			const observer = new MutationObserver((mutationsList, observer) => {
+				const sideToolBar = document.querySelector('.comfyui-body-left .side-tool-bar-container');
+				if (sideToolBar) {
+					adjustImageTray();
+					observer.disconnect();
+					clearTimeout(timeoutId);
+				}
+			});
+
+			observer.observe(document.body, { childList: true, subtree: true });
+
+			timeoutId = setTimeout(() => {
+				observer.disconnect();
+				logError('Sidebar not found within the maximum observation time', new Error('Timeout'));
+			}, MAX_OBSERVATION_TIME);
+		}
+
+		waitForSideToolbar();
+
+		function setupEventListeners() {
+			// Save listener references to variables so they can be cleaned up later
+			resizeListener = debounce(adjustImageTray, 250);
+			domReadyListener = onDomReady;
+			executionStartListener = ({ detail }) => {
+				const filterEnabled = getJSONVal("FilterEnabled", false);
+				if (filterEnabled && (!selectedNodeIds || selectedNodeIds.length === 0)) {
+					saveJSONVal('FilterEnabled', false);
+					return;
+				}
+			}
+		};
+
+		function cleanupEventListeners() {
+			if (resizeListener) {
+				window.removeEventListener('resize', resizeListener);
+			}
+
+			if (domReadyListener) {
+				document.removeEventListener('DOMContentLoaded', domReadyListener);
+			}
+
+			if (executionStartListener) {
+				api.removeEventListener('execution_start', executionStartListener);
+			}
+
+			if (executedListener) {
+				api.removeEventListener('executed', executedListener);
+			}
+		}
+
+		function handleExecuted(detail) {
 			if (!visible || !detail?.output?.images) {
 				return;
 			}
@@ -797,16 +838,14 @@ app.registerExtension({
 			const newBatchIdentifier = detail.prompt_id;
 
 			if (detail.node?.includes?.(":")) {
-				// Ignore group nodes
 				const n = app.graph.getNodeById(detail.node.split(":")[0]);
 				if (n?.getInnerNodes) return;
 			}
 
 			if (!imageFeed && !imageList) {
-				console.error('Image feed or imageList container not found!');
+				logError('Image feed or imageList container not found!', new Error('Elements not found'));
 				return;
 			} else {
-				// Start a new batch container immediately
 				if (!currentBatchContainer) {
 					currentBatchContainer = document.createElement('div');
 					currentBatchContainer.className = 'image-batch-container';
@@ -850,78 +889,114 @@ app.registerExtension({
 
 			checkAndRemoveExtraImageBatches();
 			setTimeout(() => window.dispatchEvent(new Event("resize")), 1);
-		});
+		}
 
-		//Lightbox Support
+		executedListener = ({ detail }) => {
+			if (!visible || !detail?.output?.images) return;
+			handleExecuted(detail);
+		};
+
+		// Add event listeners
+		window.addEventListener('resize', resizeListener);
+		document.addEventListener('DOMContentLoaded', domReadyListener);
+		api.addEventListener('execution_start', executionStartListener);
+		api.addEventListener('executed', executedListener);
+
 		function getAllImages() {
 			const images = document.querySelectorAll('.tb-image-feed img');
-			// Normalize URLs to be absolute - This is support for multibatch lightbox support.
 			const imageSources = Array.from(images).map(img => new URL(img.src, window.location.origin).href);
 			return imageSources;
 		}
 
-		function addImageToBatch(src, batchContainer) {
-			// Construct the base and full URL with cache-busting
-			const baseUrl = `./view?filename=${encodeURIComponent(src.filename)}&type=${src.type}&subfolder=${encodeURIComponent(src.subfolder)}`;
-			const timestampedUrl = `${baseUrl}&t=${+new Date()}`;
-			const newestToOldest = getVal("NewestFirst", "newest") === "newest";
+		function loadImage(src) {
+			return new Promise((resolve, reject) => {
+				const img = new Image();
+				img.onload = () => resolve(img);
+				img.onerror = reject;
+				img.src = src;
+			});
+		}
 
-			const imageElement = document.createElement('div');
-			imageElement.className = 'image-container';
-			const anchor = document.createElement('a');
-			anchor.setAttribute('target', '_blank');
-			anchor.setAttribute('href', timestampedUrl); // Set href to the full URL for cache busting
-			anchor.onclick = (e) => {
-				e.preventDefault();
-				const absoluteUrl = new URL(timestampedUrl, window.location.origin).href;
-				const imgs = getAllImages();
-				// Normalize and compare without the `t` parameter for matching
-				const normalizedUrls = imgs.map(url => url.split('&t=')[0]);
-				const baseUrlAbsolute = new URL(baseUrl, window.location.origin).href;
-				const imageIndex = normalizedUrls.indexOf(baseUrlAbsolute);
+		function logError(message, error) {
+			console.error(`${message}:`, error);
+		}
 
-				if (imageIndex > -1) {
-					lightbox.show(imgs, imageIndex);
-				} else {
-					console.error("Error: Clicked image not found in the list:", absoluteUrl);
-				}
+		function debounce(func, wait) {
+			let timeout;
+			return function executedFunction(...args) {
+
+				const later = () => {
+					clearTimeout(timeout);
+					func(...args);
+				};
+
+				clearTimeout(timeout);
+				timeout = setTimeout(later, wait);
 			};
+		}
 
-			const img = document.createElement('img');
-			img.setAttribute('src', timestampedUrl); // Use the full URL for the img src
-			anchor.appendChild(img);
-			imageElement.appendChild(anchor);
+		async function addImageToBatch(src, batchContainer) {
+			try {
+				const baseUrl = `./view?filename=${encodeURIComponent(src.filename)}&type=${src.type}&subfolder=${encodeURIComponent(src.subfolder)}`;
+				const timestampedUrl = `${baseUrl}&t=${+new Date()}`;
+				const newestToOldest = getVal("NewestFirst", "newest") === "newest";
 
-			if (newestToOldest) {
+				const img = await loadImage(timestampedUrl);
 
-				batchContainer.prepend(imageElement);
-			} else {
-				batchContainer.appendChild(imageElement);
+				const imageElement = document.createElement('div');
+				imageElement.className = 'image-container';
+				const anchor = document.createElement('a');
+				anchor.setAttribute('target', '_blank');
+				anchor.setAttribute('href', timestampedUrl);
+				anchor.onclick = (e) => {
+					e.preventDefault();
+					const absoluteUrl = new URL(timestampedUrl, window.location.origin).href;
+					const imgs = getAllImages();
+					const normalizedUrls = imgs.map(url => url.split('&t=')[0]);
+					const baseUrlAbsolute = new URL(baseUrl, window.location.origin).href;
+					const imageIndex = normalizedUrls.indexOf(baseUrlAbsolute);
+
+					if (imageIndex > -1) {
+						lightbox.show(imgs, imageIndex);
+					} else {
+						logError("Clicked image not found in the list:", new Error("Image not found"));
+					}
+				};
+
+				anchor.appendChild(img);
+				imageElement.appendChild(anchor);
+
+				if (newestToOldest) {
+					batchContainer.prepend(imageElement);
+				} else {
+					batchContainer.appendChild(imageElement);
+				}
+			} catch (error) {
+				logError("Error adding image to batch", error);
+				const placeholderImg = createElement('img', {
+					src: 'path/to/placeholder.png',
+					alt: 'Image failed to load'
+				});
+				batchContainer.appendChild(placeholderImg);
 			}
 		}
 
 		function checkAndRemoveExtraImageBatches() {
-			const newestToOldest = getVal("NewestFirst", "newest") === "newest";
 			const maxImageBatches = getVal("MaxFeedLength", 25);
+			const batches = Array.from(imageList.querySelectorAll('.image-batch-container'));
 
-			if (!imageList) {
-				console.log("Image list not found.");
-				return;
-			}
+			if (batches.length <= maxImageBatches) return;
 
-			let allBatches = imageList.querySelectorAll('.image-batch-container');
-
-			while (allBatches.length > maxImageBatches) {
-				const elementToRemove = newestToOldest ? allBatches[allBatches.length - 1] : allBatches[0];
-				const yellowBarToRemove = newestToOldest ? elementToRemove.previousElementSibling : elementToRemove.nextElementSibling;
-
-				if (yellowBarToRemove && yellowBarToRemove.className === "image-feed-vertical-bar") {
-					imageList.removeChild(yellowBarToRemove);
+			const batchesToRemove = batches.slice(maxImageBatches);
+			batchesToRemove.forEach(batch => {
+				const yellowBar = batch.previousElementSibling;
+				if (yellowBar && yellowBar.className === "image-feed-vertical-bar") {
+					yellowBar.remove();
 				}
-				imageList.removeChild(elementToRemove);
-
-				allBatches = imageList.querySelectorAll('.image-batch-container');
-			}
+				batch.remove();
+			});
 		}
+
 	},
 });
+
