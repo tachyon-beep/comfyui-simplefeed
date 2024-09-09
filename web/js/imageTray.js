@@ -48,15 +48,14 @@ $el("style", {
 		.tb-image-feed .tb-image-feed-list {
 			display: flex;
 			flex-direction: row; 
-			gap: 4px;
 			align-items: flex-start; 
 			white-space: nowrap; 
 			overflow-x: scroll; 
 			overflow-y: hidden; 
 			scrollbar-gutter: stable;
 			scrollbar-width: auto;
-			max-height: inherit;
-			max-width: inherit;
+			max-height: 99.99%;
+			max-width: 99.99%;
 			height: inherit;
 			width: inherit;
 			z-index: 501;
@@ -69,7 +68,6 @@ $el("style", {
 		.tb-image-feed .image-batch-container {
 			display: flex;
 			flex-direction: row;
-			gap: 2px;
 			align-items: center;
 			max-height: inherit;
 			height: inherit;
@@ -83,7 +81,7 @@ $el("style", {
 			justify-content: center;
 			align-items: center;
 			overflow: hidden;
-			max-height: inherit;
+
 			height: 99.8%;
 			width: 99.8%;
 			z-index: 501;
@@ -103,7 +101,7 @@ $el("style", {
 		}
 
 		.tb-image-feed .image-feed-vertical-bar {
-			height: 100%;
+			height: 99.5%;
 			width: 4px;
 			background-color: yellow;
 			display: inline-block;
