@@ -22,7 +22,7 @@ $el("style", {
 			position: fixed;
 			display: flex;
 			background-color: var(--tb-background-color-main);
-			padding: 5px;
+			
 			z-index: 500;
 			transition: all 0.3s ease;
 			border: 1px solid var(--tb-border-color);
@@ -84,7 +84,8 @@ $el("style", {
 			align-items: center;
 			overflow: hidden;
 			max-height: inherit;
-			height: inherit;
+			height: 99.8%;
+			width: 99.8%;
 			z-index: 501;
 		}
 
@@ -301,8 +302,8 @@ app.registerExtension({
 		let selectedNodeIds = getJSONVal("NodeFilter", []);
 		let imageNodes;
 
-		let filterToggleButton;
-		let sortToggleButton;
+		//let filterToggleButton;
+		//let sortToggleButton;
 
 		let currentBatchIdentifier;
 		let currentBatchContainer;
@@ -388,29 +389,39 @@ app.registerExtension({
 
 		async function loadModal() {
 			try {
-				const overlay = await loadOverlay();
+				const overlay = await loadOverlay(); // Ensure overlay exists
 				let modal = document.getElementById('nodeSelectorPlaceholder');
+
+				// If the modal does not exist, create it
 				if (!modal) {
-					modal = createElement('div', {
-						id: 'nodeSelectorPlaceholder',
-						className: 'nodeSelectorPlaceholder'
-					});
+					modal = document.createElement('div');
+					modal.id = 'nodeSelectorPlaceholder';
+					modal.className = 'nodeSelectorPlaceholder';
 					overlay.appendChild(modal);
 				}
+
+				// Return the modal element for use in createImageNodeList
 				return modal;
 			} catch (error) {
-				logError('Error loading modal', error);
+				console.error('Error loading modal:', error);
 			}
 		}
+
 
 		function loadOverlay() {
 			return new Promise((resolve, reject) => {
 				let overlay = document.getElementById('modalOverlay');
 
+				// If overlay doesn't exist, create it
 				if (!overlay) {
-					overlay = createElement('div', { id: 'modalOverlay', classList: ['modalOverlay'] });
+					overlay = document.createElement('div');
+					overlay.id = 'modalOverlay';
+					overlay.className = 'modalOverlay';
 					document.body.appendChild(overlay);
+
+					// Add click event listener to close modal on clicking outside
 					overlay.addEventListener('click', event => {
+						// Close modal if clicked outside of the modal content
 						if (event.target === overlay) {
 							setNodeSelectorVisibility(false);
 						}
@@ -421,20 +432,33 @@ app.registerExtension({
 			});
 		}
 
-		function toggleFilter() {
-			const filterEnabled = !getJSONVal("FilterEnabled", false);
-			saveJSONVal("FilterEnabled", filterEnabled);
-			filterToggleButton.textContent = filterEnabled ? 'Disable Filter' : 'Enable Filter';
-			sortToggleButton.disabled = !filterEnabled;
-			redrawImageNodeList();
+		async function toggleFilter(filterToggleButton, sortToggleButton) {
+			const filterEnabled = getJSONVal("FilterEnabled", false);
+			const newFilterState = !filterEnabled;
+
+			// Save the new state
+			saveJSONVal("FilterEnabled", newFilterState);
+
+			// Update the button text and sort button disabled state
+			filterToggleButton.textContent = newFilterState ? 'Disable Filter' : 'Enable Filter';
+			sortToggleButton.disabled = !newFilterState;
+
+			// Redraw the image node list to reflect filter changes
+			await redrawImageNodeList();
 		}
 
-		function toggleSortOrder() {
-			sortOrder = getJSONVal("SortOrder", "ID");
-			sortOrder = sortOrder === "ID" ? "Name" : "ID";
-			saveJSONVal("SortOrder", sortOrder);
-			sortToggleButton.textContent = sortOrder === "ID" ? 'Sort by Name' : 'Sort by ID';
-			redrawImageNodeList(imageNodes, loadModal());
+		async function toggleSortOrder(sortToggleButton) {
+			const currentSortOrder = getJSONVal("SortOrder", "ID");
+			const newSortOrder = currentSortOrder === "ID" ? "Name" : "ID";
+
+			// Save the new sort order
+			saveJSONVal("SortOrder", newSortOrder);
+
+			// Update the button text based on the new sort order
+			sortToggleButton.textContent = newSortOrder === "ID" ? 'Sort by Name' : 'Sort by ID';
+
+			// Redraw the list based on the new sort order
+			await redrawImageNodeList();
 		}
 
 		function sortImageNodes() {
@@ -446,76 +470,104 @@ app.registerExtension({
 				return a.id - b.id;
 			});
 		}
+		async function redrawImageNodeList() {
+			const listContainer = await loadModal(); // Ensure modal is loaded
 
-		function redrawImageNodeList() {
-			const listContainer = loadModal();
+			// Ensure the list container ('.node-list') exists or create it
+			let nodeList = listContainer.querySelector('.node-list');
+			if (!nodeList) {
+				nodeList = document.createElement('ul'); // Create an unordered list for the node items
+				nodeList.className = 'node-list';
+				listContainer.appendChild(nodeList); // Append the newly created list to the container
+			}
+
 			const fragment = document.createDocumentFragment();
 			const filterEnabled = getJSONVal("FilterEnabled", false);
 
+			// Update and sort the image nodes to ensure all nodes are visible and ordered
 			updateImageNodes();
 			sortImageNodes();
 
+			// Render checkboxes for all image nodes
 			imageNodes.forEach((node, index) => {
 				const listItem = createElement('li', {
-					className: `node-list-item ${index % 2 === 0 ? 'even' : 'odd'}`
+					className: `node-list-item ${index % 2 === 0 ? 'even' : 'odd'}`, // Alternate even/odd rows
 				});
 
+				// Create the checkbox for each node and check it based on the selectedNodeIds array
 				const checkbox = createElement('input', {
 					type: 'checkbox',
 					id: `node-${node.id}`,
-					checked: selectedNodeIds.includes(node.id),
-					disabled: !filterEnabled
+					checked: selectedNodeIds.includes(node.id), // Check based on the current state in selectedNodeIds
 				});
 
+				// Update selectedNodeIds when the checkbox is toggled
 				checkbox.addEventListener('change', () => {
-					updateSelectedNodeIds(node.id, checkbox.checked);
+					updateSelectedNodeIds(node.id, checkbox.checked); // Update state when checked/unchecked
 				});
 
+				// Create label for each checkbox
 				const label = createElement('label', {
 					htmlFor: checkbox.id,
-					textContent: node.title ? `${node.title} (ID: ${node.id})` : `Node ID: ${node.id}`
+					textContent: node.title ? `${node.title} (ID: ${node.id})` : `Node ID: ${node.id}`,
 				});
 
+				// Append the checkbox and label to the list item
 				listItem.appendChild(checkbox);
 				listItem.appendChild(label);
+
+				// Add each list item to the document fragment for better performance
 				fragment.appendChild(listItem);
 			});
 
-			listContainer.querySelector('.node-list')?.replaceChildren(fragment);
+			// Replace the content of the existing '.node-list' with the newly generated fragment
+			nodeList.replaceChildren(fragment);
 
+			// Handle the custom node checkbox ("Custom Nodes Not Shown")
 			let customNodeItem = listContainer.querySelector('.custom-node-item');
 			if (!customNodeItem) {
 				customNodeItem = document.createElement('li');
-				customNodeItem.classList.add("custom-node-item");
+				customNodeItem.classList.add('custom-node-item');
 
 				const customCheckbox = document.createElement('input');
 				customCheckbox.type = 'checkbox';
 				customCheckbox.id = 'custom-node-checkbox';
+				customCheckbox.checked = selectedNodeIds.includes(-1); // Check based on the presence of -1 in selectedNodeIds
+
+				// Update selectedNodeIds for custom nodes when the checkbox is toggled
 				customCheckbox.addEventListener('change', function () {
-					updateSelectedNodeIds(-1, this.checked);
+					updateSelectedNodeIds(-1, this.checked); // Use -1 to represent the custom node
 				});
 
 				const customLabel = document.createElement('label');
 				customLabel.setAttribute('for', customCheckbox.id);
-				customLabel.textContent = "Custom Nodes Not Shown";
-				customLabel.classList.add("custom-label");
+				customLabel.textContent = 'Custom Nodes Not Shown';
+				customLabel.classList.add('custom-label');
 
 				customNodeItem.appendChild(customCheckbox);
 				customNodeItem.appendChild(customLabel);
-				listContainer.appendChild(customNodeItem);
+
+				// Append the custom node item at the end of the list
+				nodeList.appendChild(customNodeItem);
 			} else {
 				const customCheckbox = customNodeItem.querySelector('input[type="checkbox"]');
 				if (customCheckbox) {
-					customCheckbox.disabled = !filterEnabled;
+					customCheckbox.checked = selectedNodeIds.includes(-1); // Check based on the current state
+					customCheckbox.disabled = !filterEnabled; // Disable if the filter is not enabled
 				}
 			}
 		}
 
-		function createImageNodeList() {
-			const nodeListElement = loadModal();
+		async function createImageNodeList() {
+			const nodeListElement = await loadModal();
+
+			if (!nodeListElement) {
+				console.error('Modal element not found');
+				return;
+			}
+
 			const buttonWidth = '100px';
 			const header = document.createElement('h2');
-
 			header.textContent = 'Detected Image Nodes';
 			header.style.textAlign = 'center';
 			header.style.color = '#FFF';
@@ -531,50 +583,53 @@ app.registerExtension({
 			line1Container.style.width = '100%';
 			line1Container.style.marginBottom = '5px';
 
-			const line2Container = document.createElement('div');
-			line2Container.style.display = 'flex';
-			line2Container.style.justifyContent = 'flex-end';
-			line2Container.style.width = '100%';
-
 			const filterEnabled = getJSONVal("FilterEnabled", false);
 
-			if (!filterToggleButton) {
-				filterToggleButton = document.createElement('button');
-				filterToggleButton.textContent = filterEnabled ? 'Disable Filter' : 'Enable Filter';
-				filterToggleButton.style.width = buttonWidth;
-				filterToggleButton.addEventListener('click', toggleFilter);
-			}
+			// Define the filter toggle button
+			const filterToggleButton = document.createElement('button');
+			filterToggleButton.textContent = filterEnabled ? 'Disable Filter' : 'Enable Filter';
+			filterToggleButton.style.width = buttonWidth;
 
-			if (!sortToggleButton) {
-				sortToggleButton = document.createElement('button');
-				sortToggleButton.style.width = buttonWidth;
-				sortToggleButton.disabled = !filterEnabled;
-				sortToggleButton.addEventListener('click', toggleSortOrder);
-			}
+			// Attach the async event listener to the filter button
+			filterToggleButton.addEventListener('click', async function () {
+				await toggleFilter(filterToggleButton, sortToggleButton);
+			});
 
-			if (sortOrder === "ID") {
-				sortToggleButton.textContent = 'Sort by Name';
-			} else {
-				sortToggleButton.textContent = 'Sort by ID';
-			}
+			// Define the sort toggle button
+			const sortToggleButton = document.createElement('button');
+			sortToggleButton.style.width = buttonWidth;
+			sortToggleButton.disabled = !filterEnabled;
+			sortToggleButton.textContent = getJSONVal("SortOrder", "ID") === "ID" ? 'Sort by Name' : 'Sort by ID';
+
+			// Attach the async event listener to the sort button
+			sortToggleButton.addEventListener('click', async function () {
+				await toggleSortOrder(sortToggleButton);
+			});
 
 			line1Container.appendChild(filterToggleButton);
 			line1Container.appendChild(sortToggleButton);
 			nodeListElement.appendChild(line1Container);
 
-			redrawImageNodeList(imageNodes, nodeListElement);
+			// Redraw the image node list to reflect filter changes
+			await redrawImageNodeList();
 		}
 
 		function setNodeSelectorVisibility(isVisible) {
-			const modal = loadModal();
-			const overlay = loadOverlay();
+			const overlay = document.getElementById('modalOverlay');
+			const modal = document.getElementById('nodeSelectorPlaceholder');
 
-			if (!isVisible) {
-				saveJSONVal("NodeFilter", selectedNodeIds);
-				redrawImageNodeList(imageNodes, loadModal());
+			if (!overlay || !modal) {
+				console.error('Overlay or modal not found');
+				return;
 			}
 
-			overlay.style.display = isVisible ? 'flex' : 'none';
+			if (isVisible) {
+				overlay.style.display = 'flex'; // Show overlay
+				modal.style.display = 'block'; // Show modal
+			} else {
+				overlay.style.display = 'none'; // Hide overlay
+				modal.style.display = 'none'; // Hide modal
+			}
 		}
 
 		function onDomReady() {
@@ -736,6 +791,7 @@ app.registerExtension({
 					if (isFeedAtTop) {
 						imageFeed.style.top = isMenuAtTop ? `${menuHeight}px` : '0';
 						imageFeed.style.bottom = 'auto';
+
 					} else {
 						imageFeed.style.top = 'auto';
 						imageFeed.style.bottom = isMenuAtBottom ? `${menuHeight}px` : '0';
