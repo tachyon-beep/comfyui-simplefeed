@@ -16,10 +16,10 @@ $el("style", {
       --tb-left-offset: 0px;
     }
 
-    .tb-image-feed {
+	.tb-image-feed {
       position: fixed;
       display: flex;
-      background-color: var(--tb-background-color-main);
+      background-color: rgba(36, 39, 48, 0.8); /* Tray with 80% opacity */
       z-index: 500;
       transition: all 0.3s ease;
       border: 1px solid var(--tb-border-color);
@@ -28,8 +28,8 @@ $el("style", {
       left: var(--tb-left-offset);
     }
 
-    .tb-image-feed--bottom { bottom: 0; }
-    .tb-image-feed--top { top: 0; }
+    .tb-image-feed--bottom { bottom: 0; top: auto; }
+    .tb-image-feed--top { top: 0; bottom: auto; }
 
     .tb-image-feed-list {
       display: flex;
@@ -74,47 +74,58 @@ $el("style", {
       background-color: var(--tb-separator-color);
     }
 
-    .tb-image-feed-btn-group {
-      position: fixed;
-      display: flex;
-      gap: 5px;
-      z-index: 502;
-    }
+	.tb-image-feed-btn-group {
+		position: fixed;
+		display: flex;
+		gap: 5px;
+		z-index: 502;
+	}
 
-    .tb-image-feed-btn-group--top {
-      top: 5px;
-      right: 40px;
-    }
+	.tb-image-feed-btn-group--top {
+		top: calc(var(--tb-feed-height) + 20px); /* 10px below the tray when it's at the top */
+		right: 10px;
+	}
 
-    .tb-image-feed-btn-group--bottom {
-      bottom: 30px;
-      right: 10px;
-    }
+	.tb-image-feed-btn-group--bottom {
+		top: calc(100vh - var(--tb-feed-height) - 40px); /* Adjusted for tray at the bottom */
+		right: 10px;
+	}
 
-    .tb-image-feed-btn {
-      padding: 0 10px;
-      font-size: 16px;
-      height: 40px;
-      width: 70px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--tb-border-color);
-      border-radius: 5px;
-      background-color: white;
-      color: var(--tb-text-color);
-      cursor: pointer;
-    }
+	.tb-image-feed-btn {
+		padding: 8px 16px; /* Increase padding for better spacing */
+		font-size: 15px; /* Adjust font size for readability */
+		font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+		height: auto;
+		width: auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: #ffffff; /* White background */
+		color: #333; /* Darker text color */
+		border: none; /* Remove borders for a cleaner look */
+		border-radius: 8px; /* Rounded corners */
+		box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.15); /* Subtle shadow for depth */
+		cursor: pointer;
+		transition: all 0.3s ease; /* Smooth transition for hover effects */
+	}
 
-    .tb-image-feed-btn:hover {
-      filter: var(--tb-highlight-filter);
-    }
+	.tb-image-feed-btn:hover {
+		background-color: #f0f0f0; /* Light grey background on hover */
+		transform: translateY(-2px); /* Slight lift on hover */
+		box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2); /* Slightly stronger shadow */
+	}
 
-    .tb-image-feed-btn:active {
-      transform: translateY(1px);
-    }
+	.tb-image-feed-btn:active {
+		transform: translateY(0); /* No lift when active */
+		box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.15); /* Reset shadow when pressed */
+	}
 
-    .tb-close-btn {
+	.tb-image-feed-btn:focus {
+		outline: none; /* Remove default outline */
+		box-shadow: 0 0 0 3px rgba(100, 150, 255, 0.5); /* Add focus ring */
+	}
+
+	.tb-close-btn {
       position: absolute;
       top: 5px;
       right: 10px;
@@ -261,7 +272,6 @@ app.registerExtension({
     let currentBatchIdentifier;
     let currentBatchContainer;
 
-    let resizeListener;
     let domReadyListener;
     let executionStartListener;
     let executedListener;
@@ -286,7 +296,6 @@ app.registerExtension({
       },
     });
 
-    // Function to update control positions based on feed location
     function updateControlPositions(feedLocation) {
       if (!imageFeed) {
         console.error(
@@ -305,13 +314,15 @@ app.registerExtension({
       if (feedLocation === "top") {
         imageFeed.classList.add("tb-image-feed--top");
         buttonPanel.classList.add("tb-image-feed-btn-group--top");
+        console.log("Moved image feed to top"); // Add this log
       } else {
         imageFeed.classList.add("tb-image-feed--bottom");
         buttonPanel.classList.add("tb-image-feed-btn-group--bottom");
+        console.log("Moved image feed to bottom"); // Add this log
       }
 
       // Call adjustImageTray to set correct positioning and height
-      adjustImageTray();
+      //adjustImageTray(); -- Not needed because we call it earlier.
     }
 
     // Helper function to create DOM elements
@@ -648,6 +659,7 @@ app.registerExtension({
         onChange: (newLocation) => {
           updateControlPositions(newLocation);
           saveJSONVal("Location", newLocation);
+          adjustImageTray();
         },
         tooltip: "Choose the location of the image feed.",
       });
@@ -711,9 +723,6 @@ app.registerExtension({
       window.dispatchEvent(new Event("resize"));
     }
 
-    window.dispatchEvent(new Event("resize"));
-
-    // Function to adjust image tray
     async function adjustImageTray() {
       try {
         const imageFeed = document.querySelector(".tb-image-feed");
@@ -743,6 +752,7 @@ app.registerExtension({
         const feedLocation = getJSONVal("Location", "bottom");
         const isFeedAtTop = feedLocation === "top";
 
+        // Check for comfy UI menu and adjust the top or bottom accordingly
         if (comfyuiMenu) {
           const menuHeight = comfyuiMenu.offsetHeight;
           const menuRect = comfyuiMenu.getBoundingClientRect();
@@ -752,8 +762,10 @@ app.registerExtension({
 
           if (isFeedAtTop) {
             imageFeed.style.top = isMenuAtTop ? `${menuHeight}px` : "0";
+            imageFeed.style.bottom = "auto"; // Ensure the bottom is reset
           } else {
             imageFeed.style.bottom = isMenuAtBottom ? `${menuHeight}px` : "0";
+            imageFeed.style.top = "auto"; // Ensure the top is reset
           }
         } else {
           imageFeed.style.top = isFeedAtTop ? "0" : "auto";
@@ -775,12 +787,17 @@ app.registerExtension({
         // Adjust button panel position
         if (isFeedAtTop) {
           const imageFeedTop = parseInt(imageFeed.style.top) || 0;
-          buttonPanel.style.top = `${imageFeedTop + 15}px`;
-          buttonPanel.style.bottom = "auto";
+          buttonPanel.style.top = `${imageFeedTop + 10}px`; // 10px below the top-right corner of the image feed when at the top
+          buttonPanel.style.bottom = "auto"; // Ensure bottom is cleared
         } else {
-          const imageFeedBottom = parseInt(imageFeed.style.bottom) || 0;
-          buttonPanel.style.bottom = `${imageFeedBottom + 30}px`;
-          buttonPanel.style.top = "auto";
+          const imageFeedHeight =
+            parseInt(
+              getComputedStyle(imageFeed).getPropertyValue("--tb-feed-height")
+            ) || 300;
+          const imageFeedTop = window.innerHeight - imageFeedHeight; // Calculate top position of the tray when it's at the bottom
+
+          buttonPanel.style.top = `${imageFeedTop + 10}px`; // Same 10px from the top-right corner of the tray when it's at the bottom
+          buttonPanel.style.bottom = "auto"; // Ensure bottom is cleared
         }
       } catch (error) {
         console.error("Error adjusting image tray:", error);
@@ -817,7 +834,6 @@ app.registerExtension({
 
     // Function to setup event listeners
     function setupEventListeners() {
-      resizeListener = debounce(adjustImageTray, 250);
       domReadyListener = onDomReady;
       executionStartListener = ({ detail }) => {
         const filterEnabled = getJSONVal("FilterEnabled", false);
@@ -833,10 +849,6 @@ app.registerExtension({
 
     // Function to cleanup event listeners
     function cleanupEventListeners() {
-      if (resizeListener) {
-        window.removeEventListener("resize", resizeListener);
-      }
-
       if (domReadyListener) {
         document.removeEventListener("DOMContentLoaded", domReadyListener);
       }
@@ -928,7 +940,6 @@ app.registerExtension({
     };
 
     // Add event listeners
-    window.addEventListener("resize", resizeListener);
     document.addEventListener("DOMContentLoaded", domReadyListener);
     api.addEventListener("execution_start", executionStartListener);
     api.addEventListener("executed", executedListener);
