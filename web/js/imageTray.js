@@ -300,6 +300,7 @@ class ImageFeed {
     this.imageNodes = [];
     this.sortOrder = storage.getJSONVal("SortOrder", "ID");
     this.lightbox = new Lightbox(this.getAllImages.bind(this));
+    this.observer = null;
   }
 
   async setup() {
@@ -570,10 +571,7 @@ class ImageFeed {
 
   updateControlPositions(feedLocation) {
     if (!this.imageFeed) {
-      console.error(
-        "Image feed element not found",
-        new Error("Element not found")
-      );
+      console.error("Image feed element not found.");
       return;
     }
 
@@ -589,10 +587,17 @@ class ImageFeed {
     if (feedLocation === "top") {
       this.imageFeed.classList.add("tb-image-feed--top");
       this.buttonPanel.classList.add("tb-image-feed-btn-group--top");
+      this.buttonPanel.style.top = "10px"; // Set a default top position
+      this.buttonPanel.style.bottom = "auto"; // Clear bottom positioning
     } else {
       this.imageFeed.classList.add("tb-image-feed--bottom");
       this.buttonPanel.classList.add("tb-image-feed-btn-group--bottom");
+      this.buttonPanel.style.bottom = "10px"; // Set a default bottom position
+      this.buttonPanel.style.top = "auto"; // Clear top positioning
     }
+
+    // Adjust the tray and button positions
+    this.adjustImageTray();
   }
 
   adjustImageTray() {
@@ -612,60 +617,63 @@ class ImageFeed {
         ) || 300;
       this.imageFeed.style.height = `${feedHeight}px`;
 
-      const feedLocation = storage.getJSONVal("Location", "bottom");
-      const isFeedAtTop = feedLocation === "top";
-
       const isMenuVisible = comfyuiMenu && comfyuiMenu.offsetParent !== null;
 
-      if (isFeedAtTop) {
+      const feedLocation = storage.getJSONVal("Location", "bottom");
+      let imageFeedTop = 0;
+      let imageFeedBottom = 0;
+
+      if (feedLocation === "top") {
         if (isMenuVisible) {
           const menuRect = comfyuiMenu.getBoundingClientRect();
           const isMenuAtTop = menuRect.top <= 1;
-          if (isMenuAtTop) {
-            this.imageFeed.style.top = `${menuRect.height}px`;
-          } else {
-            this.imageFeed.style.top = "0";
-          }
-        } else {
-          this.imageFeed.style.top = "0";
+          imageFeedTop = isMenuAtTop ? menuRect.height : 0;
         }
+        this.imageFeed.style.top = `${imageFeedTop}px`;
         this.imageFeed.style.bottom = "auto";
       } else {
         if (isMenuVisible) {
           const menuRect = comfyuiMenu.getBoundingClientRect();
           const isMenuAtBottom =
             Math.abs(window.innerHeight - menuRect.bottom) <= 1;
-          if (isMenuAtBottom) {
-            this.imageFeed.style.bottom = `${menuRect.height}px`;
-          } else {
-            this.imageFeed.style.bottom = "0";
-          }
-        } else {
-          this.imageFeed.style.bottom = "0";
+          imageFeedBottom = isMenuAtBottom ? menuRect.height : 0;
         }
+        this.imageFeed.style.bottom = `${imageFeedBottom}px`;
         this.imageFeed.style.top = "auto";
       }
 
-      this.adjustButtonPanelPosition(isFeedAtTop);
+      // Ensure the button panel moves with the tray, wrapped in requestAnimationFrame
+      requestAnimationFrame(() => this.adjustButtonPanelPosition());
+
+      if (!this.observer && comfyuiMenu) {
+        this.observer = new MutationObserver(() => {
+          requestAnimationFrame(() => {
+            this.adjustImageTray();
+          });
+        });
+
+        this.observer.observe(comfyuiMenu, {
+          attributes: true,
+          childList: true,
+          subtree: true,
+        });
+        this.observer.observe(this.imageFeed, {
+          attributes: true,
+          childList: true,
+          subtree: true,
+        });
+      }
     } catch (error) {
       console.error("Error adjusting image tray:", error);
     }
   }
 
-  adjustButtonPanelPosition(isFeedAtTop) {
-    if (isFeedAtTop) {
-      const imageFeedTop = parseInt(this.imageFeed.style.top) || 0;
-      this.buttonPanel.style.top = `${imageFeedTop + 10}px`;
-      this.buttonPanel.style.bottom = "auto";
-    } else {
-      const imageFeedHeight =
-        parseInt(
-          getComputedStyle(this.imageFeed).getPropertyValue("--tb-feed-height")
-        ) || 300;
-      const imageFeedTop = window.innerHeight - imageFeedHeight;
-      this.buttonPanel.style.top = `${imageFeedTop + 10}px`;
-      this.buttonPanel.style.bottom = "auto";
-    }
+  adjustButtonPanelPosition() {
+    const imageFeedRect = this.imageFeed.getBoundingClientRect();
+    const topPosition = imageFeedRect.top + 10; // 10px offset from the top of the image feed
+
+    this.buttonPanel.style.top = `${topPosition}px`;
+    this.buttonPanel.style.bottom = "auto";
   }
 
   waitForSideToolbar() {
@@ -1138,16 +1146,16 @@ const styles = `
     display: flex;
     gap: 5px;
     z-index: 502;
+    right: 10px;
+    transition: top 0.3s ease, bottom 0.3s ease;
   }
 
   .tb-image-feed-btn-group--top {
-    top: calc(var(--tb-feed-height) + 20px);
-    right: 10px;
+    top: 10px; /* This will be overridden by JavaScript */
   }
 
   .tb-image-feed-btn-group--bottom {
-    top: calc(100vh - var(--tb-feed-height) - 40px);
-    right: 10px;
+    bottom: 10px; /* This will be overridden by JavaScript */
   }
 
   .tb-image-feed-btn {
