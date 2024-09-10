@@ -1310,7 +1310,7 @@ const lightboxStyles = `
   height: 120px;
   top: 50%;
   transform: translateY(-50%);
-  background-color: rgba(255, 255, 255, 0.2); /* Lighter background for regular arrows */
+  background-color: rgba(255, 255, 255, 0.2);
   border-radius: 50%;
   display: flex;
   justify-content: center;
@@ -1390,6 +1390,16 @@ const lightboxStyles = `
 .lightbox__prev--wrap:hover,
 .lightbox__next--wrap:hover {
   background-color: rgba(230, 120, 0, 1); /* Darker orange on hover */
+}
+
+/* Optical adjustment for left arrow */
+.lightbox__prev .arrow-inner {
+  transform: translateX(5px); /* Shift slightly right */
+}
+
+/* Optical adjustment for right arrow */
+.lightbox__next .arrow-inner {
+  transform: translateX(-5px); /* Shift slightly left */
 }
 
 /* Spinner for image loading */
