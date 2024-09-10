@@ -30,12 +30,26 @@ class Lightbox {
   #createElements() {
     this.#el = this.#createElement("div", "lightbox");
     this.#closeBtn = this.#createElement("div", "lightbox__close", this.#el);
+
+    // Create arrow containers and add inner arrow elements
     this.#prev = this.#createElement("div", "lightbox__prev", this.#el);
+    const prevInner = this.#createElement("div", "arrow-inner", this.#prev);
+
+    // Create an arrow shape inside the prevInner (a simple div for the arrow)
+    const prevArrow = this.#createElement("div", "arrow-shape", prevInner);
+
     const main = this.#createElement("div", "lightbox__main", this.#el);
+
     this.#next = this.#createElement("div", "lightbox__next", this.#el);
+    const nextInner = this.#createElement("div", "arrow-inner", this.#next);
+
+    // Create an arrow shape inside the nextInner (a simple div for the arrow)
+    const nextArrow = this.#createElement("div", "arrow-shape", nextInner);
+
     this.#link = this.#createElement("a", "lightbox__link", main, {
       target: "_blank",
     });
+
     this.#spinner = this.#createElement("div", "lightbox__spinner", this.#link);
     this.#img = this.#createElement("img", "lightbox__img", this.#link);
     document.body.appendChild(this.#el);
@@ -52,14 +66,49 @@ class Lightbox {
   }
 
   #addEventListeners() {
+    // Close lightbox when clicking outside the image area
     this.#el.addEventListener("click", (e) => {
       if (e.target === this.#el) this.close();
     });
+
+    // Close button event listener
     this.#closeBtn.addEventListener("click", () => this.close());
-    this.#prev.addEventListener("click", () => this.#update(-1));
-    this.#next.addEventListener("click", () => this.#update(1));
+
+    // Arrow navigation with click effect for the previous image
+    this.#prev.addEventListener("click", () => {
+      this.#triggerArrowClickEffect(this.#prev);
+      this.#update(-1);
+    });
+
+    // Arrow navigation with click effect for the next image
+    this.#next.addEventListener("click", () => {
+      this.#triggerArrowClickEffect(this.#next);
+      this.#update(1);
+    });
+
+    // Stop propagation when clicking on the image itself (to avoid closing the lightbox)
     this.#img.addEventListener("click", (e) => e.stopPropagation());
+
+    // Handle keyboard navigation
     document.addEventListener("keydown", this.#handleKeyDown.bind(this));
+  }
+
+  #triggerArrowClickEffect(arrowElement) {
+    const innerArrow = arrowElement.querySelector(".arrow-inner");
+
+    if (innerArrow) {
+      innerArrow.classList.remove("arrow-click-effect");
+      void innerArrow.offsetWidth; // Force a reflow
+      innerArrow.classList.add("arrow-click-effect");
+
+      innerArrow.addEventListener(
+        "animationend",
+        () => {
+          innerArrow.classList.remove("arrow-click-effect");
+        },
+        { once: true }
+      );
+    }
   }
 
   #handleKeyDown(event) {
@@ -1222,6 +1271,7 @@ const styles = `
 `;
 
 const lightboxStyles = `
+/* Lightbox container */
 .lightbox {
   position: fixed;
   top: 0;
@@ -1235,6 +1285,7 @@ const lightboxStyles = `
   z-index: 1000;
 }
 
+/* Center the main image */
 .lightbox__main {
   position: absolute;
   top: 50%;
@@ -1244,6 +1295,7 @@ const lightboxStyles = `
   max-height: 90%;
 }
 
+/* The image itself */
 .lightbox__img {
   max-width: 100%;
   max-height: 100%;
@@ -1251,14 +1303,14 @@ const lightboxStyles = `
   transition: opacity 0.2s ease-in-out;
 }
 
-/* Arrow buttons with increased size */
-.lightbox__close,
-.lightbox__prev,
-.lightbox__next {
+/* Base styles for arrow buttons */
+.lightbox__prev, .lightbox__next {
   position: absolute;
-  width: 120px; /* 300% bigger */
-  height: 120px; /* 300% bigger */
-  background-color: rgba(0, 0, 0, 0.5);
+  width: 120px;
+  height: 120px;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(255, 255, 255, 0.2); /* Lighter background for regular arrows */
   border-radius: 50%;
   display: flex;
   justify-content: center;
@@ -1267,93 +1319,77 @@ const lightboxStyles = `
   transition: background-color 0.2s ease-in-out;
 }
 
+/* Hover effect for regular arrows */
+.lightbox__prev:hover, .lightbox__next:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Disabled state for arrows */
 .lightbox__prev.disabled,
 .lightbox__next.disabled {
+  background-color: rgba(0, 0, 0, 0.5); /* Dark background for disabled arrows */
   opacity: 0.5;
   pointer-events: none;
 }
 
-/* Hover effect for close, prev, next buttons */
-.lightbox__close:hover,
-.lightbox__prev:hover,
-.lightbox__next:hover {
-  background-color: rgba(0, 0, 0, 0.8);
-}
-
-/* Close button styles */
-.lightbox__close {
-  top: 20px;
-  right: 20px;
-}
-
-.lightbox__close::before,
-.lightbox__close::after {
-  content: "";
-  position: absolute;
-  width: 60px; /* 300% bigger */
-  height: 6px; /* 300% bigger */
-  background-color: white;
-}
-
-.lightbox__close::before {
-  transform: rotate(45deg);
-}
-
-.lightbox__close::after {
-  transform: rotate(-45deg);
-}
-
-/* Positioning prev and next arrows */
-.lightbox__prev,
-.lightbox__next {
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-/* Previous arrow */
+/* Positioning of previous arrow (on the left) */
 .lightbox__prev {
-  left: 40px; /* Adjusted to keep a good visual distance */
+  left: 40px;
 }
 
-.lightbox__prev::before,
-.lightbox__next::before {
-  content: "";
-  display: block;
-  width: 30px; /* 300% bigger */
-  height: 30px; /* 300% bigger */
-  border-top: 6px solid white; /* 300% bigger */
-  border-left: 6px solid white; /* 300% bigger */
-}
-
-/* Arrow rotation for prev */
-.lightbox__prev::before {
-  transform: rotate(-45deg);
-}
-
-/* Next arrow */
+/* Positioning of next arrow (on the right) */
 .lightbox__next {
-  right: 40px; /* Adjusted to keep a good visual distance */
+  right: 40px;
 }
 
-/* Arrow rotation for next */
-.lightbox__next::before {
-  transform: rotate(135deg);
+.arrow-inner::before {
+  content: '';
+  width: 30px;
+  height: 30px;
+  border: solid white;
+  border-width: 0 6px 6px 0;
+  display: inline-block;
+}
+
+/* Inner wrapper for scaling effect on the arrow */
+.arrow-inner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.3s ease;
+}
+
+/* Click effect on the inner arrow */
+.arrow-click-effect {
+  animation: arrowClickEffect 0.3s ease;
+}
+
+/* Rotation for the left arrow (previous button) */
+.lightbox__prev .arrow-inner::before {
+  transform: rotate(135deg); /* Rotated to point left */
+}
+
+/* Rotation for the right arrow (next button) */
+.lightbox__next .arrow-inner::before {
+  transform: rotate(-45deg); /* Rotated to point right */
 }
 
 /* Wrapping state for previous arrow */
 .lightbox__prev--wrap {
-  background-color: rgba(255, 165, 0, 0.8); /* Orange color for wrapping state */
+  background-color: rgba(255, 165, 0, 0.8);
 }
 
 /* Wrapping state for next arrow */
 .lightbox__next--wrap {
-  background-color: rgba(255, 165, 0, 0.8); /* Same orange color for wrapping state */
+  background-color: rgba(255, 165, 0, 0.8);
 }
 
 /* Hover effect for wrapping state */
 .lightbox__prev--wrap:hover,
 .lightbox__next--wrap:hover {
-  background-color: rgba(255, 140, 0, 1); /* Darker orange on hover */
+  background-color: rgba(230, 120, 0, 1); /* Darker orange on hover */
 }
 
 /* Spinner for image loading */
@@ -1369,6 +1405,18 @@ const lightboxStyles = `
   border-top-color: white;
   animation: spin 1s linear infinite;
   display: none;
+}
+
+@keyframes arrowClickEffect {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* Keyframes for spinner */
