@@ -597,15 +597,15 @@ class ImageFeed {
 
   adjustImageTray() {
     try {
-      const sideToolBar = document.querySelector(
+      const sideBar = document.querySelector(
         ".comfyui-body-left .side-tool-bar-container"
       );
+      const sideBarWidth = sideBar?.offsetWidth || 0;
+      this.imageFeed.style.setProperty("--tb-left-offset", `${sideBarWidth}px`);
+      this.imageFeed.style.width = `calc(100% - ${sideBarWidth}px)`;
+      this.imageFeed.style.left = `${sideBarWidth}px`;
+
       const comfyuiMenu = document.querySelector("nav.comfyui-menu");
-
-      const toolbarWidth = sideToolBar?.offsetWidth || 0;
-      this.imageFeed.style.setProperty("--tb-left-offset", `${toolbarWidth}px`);
-      this.imageFeed.style.width = `calc(100% - ${toolbarWidth}px)`;
-
       const feedHeight =
         parseInt(
           getComputedStyle(this.imageFeed).getPropertyValue("--tb-feed-height")
@@ -615,36 +615,35 @@ class ImageFeed {
       const feedLocation = storage.getJSONVal("Location", "bottom");
       const isFeedAtTop = feedLocation === "top";
 
-      if (comfyuiMenu) {
-        const menuHeight = comfyuiMenu.offsetHeight;
-        const menuRect = comfyuiMenu.getBoundingClientRect();
-        const isMenuAtTop = menuRect.top <= 1;
-        const isMenuAtBottom =
-          Math.abs(window.innerHeight - menuRect.bottom) <= 1;
+      const isMenuVisible = comfyuiMenu && comfyuiMenu.offsetParent !== null;
 
-        if (isFeedAtTop) {
-          this.imageFeed.style.top = isMenuAtTop ? `${menuHeight}px` : "0";
-          this.imageFeed.style.bottom = "auto";
+      if (isFeedAtTop) {
+        if (isMenuVisible) {
+          const menuRect = comfyuiMenu.getBoundingClientRect();
+          const isMenuAtTop = menuRect.top <= 1;
+          if (isMenuAtTop) {
+            this.imageFeed.style.top = `${menuRect.height}px`;
+          } else {
+            this.imageFeed.style.top = "0";
+          }
         } else {
-          this.imageFeed.style.bottom = isMenuAtBottom
-            ? `${menuHeight}px`
-            : "0";
-          this.imageFeed.style.top = "auto";
+          this.imageFeed.style.top = "0";
         }
+        this.imageFeed.style.bottom = "auto";
       } else {
-        this.imageFeed.style.top = isFeedAtTop ? "0" : "auto";
-        this.imageFeed.style.bottom = isFeedAtTop ? "auto" : "0";
-      }
-
-      if (sideToolBar && isFeedAtTop) {
-        const sideToolBarRect = sideToolBar.getBoundingClientRect();
-        if (sideToolBarRect.top <= 1) {
-          const maxTop = Math.max(
-            parseInt(this.imageFeed.style.top) || 0,
-            sideToolBarRect.height
-          );
-          this.imageFeed.style.top = `${maxTop}px`;
+        if (isMenuVisible) {
+          const menuRect = comfyuiMenu.getBoundingClientRect();
+          const isMenuAtBottom =
+            Math.abs(window.innerHeight - menuRect.bottom) <= 1;
+          if (isMenuAtBottom) {
+            this.imageFeed.style.bottom = `${menuRect.height}px`;
+          } else {
+            this.imageFeed.style.bottom = "0";
+          }
+        } else {
+          this.imageFeed.style.bottom = "0";
         }
+        this.imageFeed.style.top = "auto";
       }
 
       this.adjustButtonPanelPosition(isFeedAtTop);
