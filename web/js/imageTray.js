@@ -60,6 +60,10 @@ class Lightbox {
     this.#next.addEventListener("click", () => this.#update(1));
     this.#img.addEventListener("click", (e) => e.stopPropagation());
     document.addEventListener("keydown", this.#handleKeyDown.bind(this));
+
+    // Add mouseover/hover events to check wrapping state
+    this.#prev.addEventListener("mouseover", () => this.#update(0));
+    this.#next.addEventListener("mouseover", () => this.#update(0));
   }
 
   #handleKeyDown(event) {
@@ -82,7 +86,10 @@ class Lightbox {
   async show(initialImages, index = 0) {
     this.#images = initialImages;
     this.#index = index;
+
+    // Ensure the arrow states are correctly set when lightbox is opened
     await this.#update(0);
+
     this.#el.style.display = "flex";
     setTimeout(() => (this.#el.style.opacity = 1), 0);
   }
@@ -96,18 +103,31 @@ class Lightbox {
     this.updateImageList(); // Refresh the image list
     let newIndex = this.#index + shift;
 
+    // Check if wrapping will occur
+    const willWrapLeft = newIndex < 0;
+    const willWrapRight = newIndex >= this.#images.length;
+
     // Implement wrapping
-    if (newIndex < 0) {
+    if (willWrapLeft) {
       newIndex = this.#images.length - 1; // Wrap to the end
-    } else if (newIndex >= this.#images.length) {
+    } else if (willWrapRight) {
       newIndex = 0; // Wrap to the beginning
     }
 
     this.#index = newIndex;
 
-    // Always show both navigation buttons when wrapping is enabled
-    this.#prev.style.visibility = "visible";
-    this.#next.style.visibility = "visible";
+    // Update arrow styles based on whether wrapping will occur
+    if (willWrapLeft) {
+      this.#prev.classList.add("lightbox__prev--wrap");
+    } else {
+      this.#prev.classList.remove("lightbox__prev--wrap");
+    }
+
+    if (willWrapRight) {
+      this.#next.classList.add("lightbox__next--wrap");
+    } else {
+      this.#next.classList.remove("lightbox__next--wrap");
+    }
 
     const img = this.#images[this.#index];
     this.#img.style.opacity = 0;
@@ -1221,13 +1241,13 @@ const lightboxStyles = `
   transition: opacity 0.2s ease-in-out;
 }
 
+/* Arrow buttons with increased size */
 .lightbox__close,
 .lightbox__prev,
 .lightbox__next {
   position: absolute;
-  top: 20px;
-  width: 40px;
-  height: 40px;
+  width: 120px; /* 300% bigger */
+  height: 120px; /* 300% bigger */
   background-color: rgba(0, 0, 0, 0.5);
   border-radius: 50%;
   display: flex;
@@ -1237,13 +1257,16 @@ const lightboxStyles = `
   transition: background-color 0.2s ease-in-out;
 }
 
+/* Hover effect for close, prev, next buttons */
 .lightbox__close:hover,
 .lightbox__prev:hover,
 .lightbox__next:hover {
   background-color: rgba(0, 0, 0, 0.8);
 }
 
+/* Close button styles */
 .lightbox__close {
+  top: 20px;
   right: 20px;
 }
 
@@ -1251,8 +1274,8 @@ const lightboxStyles = `
 .lightbox__close::after {
   content: "";
   position: absolute;
-  width: 20px;
-  height: 2px;
+  width: 60px; /* 300% bigger */
+  height: 6px; /* 300% bigger */
   background-color: white;
 }
 
@@ -1264,38 +1287,60 @@ const lightboxStyles = `
   transform: rotate(-45deg);
 }
 
+/* Positioning prev and next arrows */
 .lightbox__prev,
 .lightbox__next {
   top: 50%;
   transform: translateY(-50%);
 }
 
+/* Previous arrow */
 .lightbox__prev {
-  left: 20px;
-}
-
-.lightbox__next {
-  right: 20px;
+  left: 40px; /* Adjusted to keep a good visual distance */
 }
 
 .lightbox__prev::before,
 .lightbox__next::before {
   content: "";
   display: block;
-  width: 10px;
-  height: 10px;
-  border-top: 2px solid white;
-  border-left: 2px solid white;
+  width: 30px; /* 300% bigger */
+  height: 30px; /* 300% bigger */
+  border-top: 6px solid white; /* 300% bigger */
+  border-left: 6px solid white; /* 300% bigger */
 }
 
+/* Arrow rotation for prev */
 .lightbox__prev::before {
   transform: rotate(-45deg);
 }
 
+/* Next arrow */
+.lightbox__next {
+  right: 40px; /* Adjusted to keep a good visual distance */
+}
+
+/* Arrow rotation for next */
 .lightbox__next::before {
   transform: rotate(135deg);
 }
 
+/* Wrapping state for previous arrow */
+.lightbox__prev--wrap {
+  background-color: rgba(255, 165, 0, 0.8); /* Orange color for wrapping state */
+}
+
+/* Wrapping state for next arrow */
+.lightbox__next--wrap {
+  background-color: rgba(255, 165, 0, 0.8); /* Same orange color for wrapping state */
+}
+
+/* Hover effect for wrapping state */
+.lightbox__prev--wrap:hover,
+.lightbox__next--wrap:hover {
+  background-color: rgba(255, 140, 0, 1); /* Darker orange on hover */
+}
+
+/* Spinner for image loading */
 .lightbox__spinner {
   position: absolute;
   top: 50%;
@@ -1310,6 +1355,7 @@ const lightboxStyles = `
   display: none;
 }
 
+/* Keyframes for spinner */
 @keyframes spin {
   0% {
     transform: translate(-50%, -50%) rotate(0deg);
