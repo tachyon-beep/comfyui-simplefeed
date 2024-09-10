@@ -60,10 +60,6 @@ class Lightbox {
     this.#next.addEventListener("click", () => this.#update(1));
     this.#img.addEventListener("click", (e) => e.stopPropagation());
     document.addEventListener("keydown", this.#handleKeyDown.bind(this));
-
-    // Add mouseover/hover events to check wrapping state
-    this.#prev.addEventListener("mouseover", () => this.#update(0));
-    this.#next.addEventListener("mouseover", () => this.#update(0));
   }
 
   #handleKeyDown(event) {
@@ -103,31 +99,17 @@ class Lightbox {
     this.updateImageList(); // Refresh the image list
     let newIndex = this.#index + shift;
 
-    // Check if wrapping will occur
-    const willWrapLeft = newIndex < 0;
-    const willWrapRight = newIndex >= this.#images.length;
-
-    // Implement wrapping
-    if (willWrapLeft) {
-      newIndex = this.#images.length - 1; // Wrap to the end
-    } else if (willWrapRight) {
-      newIndex = 0; // Wrap to the beginning
+    // Implement wrapping behavior
+    if (newIndex < 0) {
+      newIndex = this.#images.length - 1; // Wrap to the last image
+    } else if (newIndex >= this.#images.length) {
+      newIndex = 0; // Wrap to the first image
     }
 
     this.#index = newIndex;
 
-    // Update arrow styles based on whether wrapping will occur
-    if (willWrapLeft) {
-      this.#prev.classList.add("lightbox__prev--wrap");
-    } else {
-      this.#prev.classList.remove("lightbox__prev--wrap");
-    }
-
-    if (willWrapRight) {
-      this.#next.classList.add("lightbox__next--wrap");
-    } else {
-      this.#next.classList.remove("lightbox__next--wrap");
-    }
+    // Update arrow styles based on the current index, not wrapping logic
+    this.#updateArrowStyles();
 
     const img = this.#images[this.#index];
     this.#img.style.opacity = 0;
@@ -142,6 +124,34 @@ class Lightbox {
       this.#img.alt = "Failed to load image";
     } finally {
       this.#spinner.style.display = "none";
+    }
+  }
+
+  #updateArrowStyles() {
+    const isAtFirstImage = this.#index === 0;
+    const isAtLastImage = this.#index === this.#images.length - 1;
+
+    // If no images or only one image, disable both arrows
+    if (this.#images.length <= 1) {
+      this.#prev.classList.add("disabled");
+      this.#next.classList.add("disabled");
+    } else {
+      // Ensure arrows are not disabled when multiple images are present
+      this.#prev.classList.remove("disabled");
+      this.#next.classList.remove("disabled");
+
+      // Add or remove the wrap class based on the current index
+      if (isAtFirstImage) {
+        this.#prev.classList.add("lightbox__prev--wrap");
+      } else {
+        this.#prev.classList.remove("lightbox__prev--wrap");
+      }
+
+      if (isAtLastImage) {
+        this.#next.classList.add("lightbox__next--wrap");
+      } else {
+        this.#next.classList.remove("lightbox__next--wrap");
+      }
     }
   }
 
@@ -1255,6 +1265,12 @@ const lightboxStyles = `
   align-items: center;
   cursor: pointer;
   transition: background-color 0.2s ease-in-out;
+}
+
+.lightbox__prev.disabled,
+.lightbox__next.disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 /* Hover effect for close, prev, next buttons */
