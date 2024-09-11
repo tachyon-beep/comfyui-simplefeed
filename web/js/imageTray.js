@@ -38,18 +38,12 @@ class Lightbox {
 
     // Create arrow containers and add inner arrow elements
     this.#prev = this.#createElement("div", "lightbox__prev", this.#el);
-    const prevInner = this.#createElement("div", "arrow-inner", this.#prev);
-
-    // Create an arrow shape inside the prevInner (a simple div for the arrow)
-    //const prevArrow = this.#createElement("div", "arrow-shape", prevInner);
+    this.#createElement("div", "arrow-inner", this.#prev);
 
     const main = this.#createElement("div", "lightbox__main", this.#el);
 
     this.#next = this.#createElement("div", "lightbox__next", this.#el);
-    const nextInner = this.#createElement("div", "arrow-inner", this.#next);
-
-    // Create an arrow shape inside the nextInner (a simple div for the arrow)
-    //const nextArrow = this.#createElement("div", "arrow-shape", nextInner);
+    this.#createElement("div", "arrow-inner", this.#next);
 
     this.#link = this.#createElement("a", "lightbox__link", main, {
       target: "_blank",
@@ -103,7 +97,8 @@ class Lightbox {
 
     if (innerArrow) {
       innerArrow.classList.remove("arrow-click-effect");
-      const _ = innerArrow.offsetWidth;
+      // Force a reflow by getting and setting a layout property
+      innerArrow.style.display = innerArrow.style.display;
       innerArrow.classList.add("arrow-click-effect");
 
       innerArrow.addEventListener(
@@ -625,7 +620,7 @@ class ImageFeed {
   }
 
   async showNodeFilter() {
-    //const overlay = await this.loadModal();
+    await this.loadModal();
     this.createImageNodeList();
     this.setNodeSelectorVisibility(true);
   }
