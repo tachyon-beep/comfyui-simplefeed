@@ -129,12 +129,6 @@ class Lightbox {
   }
 
   show(images, index = 0) {
-    console.log(
-      "Lightbox show called with images:",
-      images,
-      "and index:",
-      index
-    );
     this.#images = images;
     this.#index = index;
     this.#updateArrowStyles();
@@ -149,7 +143,6 @@ class Lightbox {
   }
 
   initializeImages(images) {
-    console.log("Initializing lightbox with images:", images);
     this.#images = images;
   }
 
@@ -204,14 +197,6 @@ class Lightbox {
       this.#prev.classList.toggle("lightbox__prev--wrap", isAtFirstImage);
       this.#next.classList.toggle("lightbox__next--wrap", isAtLastImage);
     }
-
-    console.log(
-      `Arrow styles updated: Total images: ${totalImages}, Current index: ${
-        this.#index
-      }`
-    );
-    console.log(`Prev arrow classes: ${this.#prev.className}`);
-    console.log(`Next arrow classes: ${this.#next.className}`);
   }
 
   #loadImage(url) {
@@ -259,7 +244,6 @@ class Lightbox {
   }
 
   updateImageList(newImages) {
-    console.log("Lightbox updating image list:", newImages);
     const currentImage = this.#images[this.#index];
     this.#images = newImages;
 
@@ -272,13 +256,6 @@ class Lightbox {
 
     this.#updateArrowStyles();
     this.#update(0); // Update without moving
-
-    console.log(
-      "Lightbox updated. Current index:",
-      this.#index,
-      "Total images:",
-      this.#images.length
-    );
   }
 }
 
@@ -360,7 +337,6 @@ class ImageFeed {
 
     setTimeout(() => {
       const initialImages = this.getAllImages();
-      console.log("Initializing lightbox with images:", initialImages);
       this.lightbox.initializeImages(initialImages);
     }, 0);
   }
@@ -406,7 +382,6 @@ class ImageFeed {
   setupEventListeners() {
     api.addEventListener("execution_start", this.onExecutionStart.bind(this));
     api.addEventListener("executed", (event) => {
-      console.log("Executed event fired:", event);
       this.onExecuted(event);
     });
     window.addEventListener(
@@ -420,7 +395,6 @@ class ImageFeed {
     this.imageFeed.offsetHeight;
 
     const currentImages = this.getAllImages();
-    console.log("Updating lightbox with images:", currentImages);
     this.lightbox.updateImageList(currentImages);
     if (this.lightbox.isOpen()) {
       this.lightbox.handleImageListChange(currentImages);
@@ -445,19 +419,10 @@ class ImageFeed {
   }
 
   onExecuted({ detail }) {
-    console.log("onExecuted called");
-    console.log("this.visible:", this.visible);
-    console.log("detail:", detail);
-    console.log("detail?.output?.images:", detail?.output?.images);
-
     if (!this.visible || !detail?.output?.images) {
-      console.log("Returning early from onExecuted");
       return;
     }
-
-    console.log("Proceeding to handleExecuted");
     this.handleExecuted(detail);
-
     // Update lightbox immediately
     this.updateLightboxIfOpen();
   }
@@ -489,19 +454,6 @@ class ImageFeed {
 
     // Update lightbox immediately after DOM changes
     this.updateLightboxIfOpen();
-  }
-
-  ensureBatchContainer(newestToOldest) {
-    if (!this.currentBatchContainer) {
-      this.currentBatchContainer = createElement("div", {
-        className: "image-batch-container",
-      });
-    }
-    if (newestToOldest) {
-      this.imageList.prepend(this.currentBatchContainer);
-    } else {
-      this.imageList.appendChild(this.currentBatchContainer);
-    }
   }
 
   createNewBatch(newestToOldest, newBatchIdentifier) {
@@ -608,17 +560,12 @@ class ImageFeed {
 
   handleImageClick(e, timestampedUrl, baseUrl) {
     e.preventDefault();
-    console.log("Image clicked. Base URL:", baseUrl);
     const state = this.getCurrentState();
-    console.log("Current state:", state);
     const absoluteBaseUrl = new URL(baseUrl, window.location.origin).href;
-    console.log("Absolute base URL:", absoluteBaseUrl);
     const imageIndex = state.images.findIndex((img) =>
       img.startsWith(absoluteBaseUrl)
     );
-    console.log("Found image index:", imageIndex);
     if (imageIndex > -1) {
-      console.log("Opening lightbox with images:", state.images);
       this.lightbox.show(state.images, imageIndex);
     } else {
       console.error(
@@ -628,7 +575,6 @@ class ImageFeed {
       console.error("Clicked image URL:", absoluteBaseUrl);
       // Fallback: If the exact URL is not found, open the lightbox with the first image
       if (state.images.length > 0) {
-        console.log("Falling back to first image in lightbox");
         this.lightbox.show(state.images, 0);
       }
     }
@@ -650,7 +596,6 @@ class ImageFeed {
       url.searchParams.delete("t"); // Remove the timestamp parameter
       return url.href;
     });
-    console.log("All image URLs:", imageUrls);
     return imageUrls;
   }
 
@@ -788,7 +733,7 @@ class ImageFeed {
   }
 
   waitForSideToolbar() {
-    const MAX_OBSERVATION_TIME = 10000;
+    const MAX_OBSERVATION_TIME = 5000; //Taking longer than five seconds to render the UI? Believe it or not, jail.
     let timeoutId;
     const observer = new MutationObserver((mutationsList, observer) => {
       const sideToolBar = document.querySelector(
