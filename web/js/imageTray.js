@@ -674,7 +674,7 @@ class ImageFeed {
   }
 
   updateSidebarAdjustments() {
-    const { sideBar, sideBarWidth, sideBarPosition } = this.getSidebarInfo();
+    const { sideBarWidth, sideBarPosition } = this.getSidebarInfo();
     this.imageFeed.style.setProperty("--tb-left-offset", `${sideBarWidth}px`);
     this.adjustFeedBasedOnSidebar(sideBarPosition, sideBarWidth);
   }
@@ -688,11 +688,16 @@ class ImageFeed {
     );
     const sideBar = leftSideBar || rightSideBar;
     const sideBarWidth = sideBar?.offsetWidth || 0;
-    const sideBarPosition = leftSideBar
-      ? "left"
-      : rightSideBar
-      ? "right"
-      : "none";
+
+    let sideBarPosition;
+    if (leftSideBar) {
+      sideBarPosition = "left";
+    } else if (rightSideBar) {
+      sideBarPosition = "right";
+    } else {
+      sideBarPosition = "none";
+    }
+
     return { sideBar, sideBarWidth, sideBarPosition };
   }
 
