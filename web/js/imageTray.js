@@ -513,21 +513,16 @@ class ImageFeed {
         baseUrl
       );
       const bars = batchContainer.querySelectorAll(".image-feed-vertical-bar");
+
       if (bars.length === 2) {
         // This is the first batch with two bars
-        if (newestToOldest) {
-          bars[1].before(imageElement);
-        } else {
-          // For oldest-first, insert before the second bar
-          bars[1].before(imageElement);
-        }
+        bars[1].before(imageElement);
+      } else if (newestToOldest) {
+        // For subsequent batches, newest first
+        batchContainer.firstChild.after(imageElement);
       } else {
-        // For subsequent batches, add after the single bar
-        if (newestToOldest) {
-          batchContainer.firstChild.after(imageElement);
-        } else {
-          batchContainer.appendChild(imageElement);
-        }
+        // For subsequent batches, oldest first
+        batchContainer.appendChild(imageElement);
       }
 
       // Force a reflow
