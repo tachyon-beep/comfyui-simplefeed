@@ -128,13 +128,17 @@ class Lightbox {
     }
   }
 
-  async show(initialImages, index = 0) {
-    this.#images = initialImages;
+  show(images, index = 0) {
+    console.log(
+      "Lightbox show called with images:",
+      images,
+      "and index:",
+      index
+    );
+    this.#images = images;
     this.#index = index;
-
-    // Ensure the arrow states are correctly set when lightbox is opened
-    await this.#update(0);
-
+    this.#updateArrowStyles();
+    this.#update(0);
     this.#el.style.display = "flex";
     setTimeout(() => (this.#el.style.opacity = 1), 0);
   }
@@ -144,8 +148,12 @@ class Lightbox {
     setTimeout(() => (this.#el.style.display = "none"), 200);
   }
 
+  initializeImages(images) {
+    console.log("Initializing lightbox with images:", images);
+    this.#images = images;
+  }
+
   async #update(shift) {
-    this.updateImageList(); // Refresh the image list
     let newIndex = this.#index + shift;
 
     // Implement wrapping behavior
@@ -157,7 +165,7 @@ class Lightbox {
 
     this.#index = newIndex;
 
-    // Update arrow styles based on the current index, not wrapping logic
+    // Update arrow styles based on the current index
     this.#updateArrowStyles();
 
     const img = this.#images[this.#index];
@@ -177,31 +185,33 @@ class Lightbox {
   }
 
   #updateArrowStyles() {
+    const totalImages = this.#images.length;
     const isAtFirstImage = this.#index === 0;
-    const isAtLastImage = this.#index === this.#images.length - 1;
+    const isAtLastImage = this.#index === totalImages - 1;
 
-    // If no images or only one image, disable both arrows
-    if (this.#images.length <= 1) {
+    // Handle arrow visibility and disabled state
+    if (totalImages <= 1) {
       this.#prev.classList.add("disabled");
       this.#next.classList.add("disabled");
+      this.#prev.classList.remove("lightbox__prev--wrap");
+      this.#next.classList.remove("lightbox__next--wrap");
     } else {
-      // Ensure arrows are not disabled when multiple images are present
+      // Multiple images
       this.#prev.classList.remove("disabled");
       this.#next.classList.remove("disabled");
 
-      // Add or remove the wrap class based on the current index
-      if (isAtFirstImage) {
-        this.#prev.classList.add("lightbox__prev--wrap");
-      } else {
-        this.#prev.classList.remove("lightbox__prev--wrap");
-      }
-
-      if (isAtLastImage) {
-        this.#next.classList.add("lightbox__next--wrap");
-      } else {
-        this.#next.classList.remove("lightbox__next--wrap");
-      }
+      // Handle wrap classes
+      this.#prev.classList.toggle("lightbox__prev--wrap", isAtFirstImage);
+      this.#next.classList.toggle("lightbox__next--wrap", isAtLastImage);
     }
+
+    console.log(
+      `Arrow styles updated: Total images: ${totalImages}, Current index: ${
+        this.#index
+      }`
+    );
+    console.log(`Prev arrow classes: ${this.#prev.className}`);
+    console.log(`Next arrow classes: ${this.#next.className}`);
   }
 
   #loadImage(url) {
@@ -213,17 +223,62 @@ class Lightbox {
     });
   }
 
-  async updateWithNewImage(img, feedDirection) {
-    if (this.#el.style.display === "none" || this.#el.style.opacity === "0")
-      return;
-    const [method, shift] =
-      feedDirection === "newest first" ? ["unshift", 1] : ["push", 0];
-    this.#images[method](img);
-    await this.#update(shift);
+  registerForUpdates(updateCallback) {
+    this.updateCallback = updateCallback;
   }
 
-  updateImageList() {
-    this.#images = this.getImages();
+  isOpen() {
+    return this.#el.style.display === "flex";
+  }
+
+  getCurrentIndex() {
+    return this.#index;
+  }
+
+  handleImageListChange(newImages) {
+    const currentImage = this.#images[this.#index];
+    this.#images = newImages;
+
+    const newIndex = this.#images.indexOf(currentImage);
+    if (newIndex === -1) {
+      // Current image was removed, show the next available image
+      this.#index = Math.min(this.#index, this.#images.length - 1);
+    } else {
+      this.#index = newIndex;
+    }
+
+    this.#updateArrowStyles();
+    this.#update(0);
+  }
+
+  updateCurrentImage(newIndex) {
+    if (newIndex >= 0 && newIndex < this.#images.length) {
+      this.#index = newIndex;
+      this.#update(0); // Update without moving
+    }
+  }
+
+  updateImageList(newImages) {
+    console.log("Lightbox updating image list:", newImages);
+    const currentImage = this.#images[this.#index];
+    this.#images = newImages;
+
+    const newIndex = this.#images.indexOf(currentImage);
+    if (newIndex !== -1) {
+      this.#index = newIndex;
+    } else {
+      this.#index = Math.min(this.#index, this.#images.length - 1);
+    }
+
+    this.#updateArrowStyles();
+    this.#update(0); // Update without moving
+
+    console.log(
+      "Lightbox updated. Current index:",
+      this.#index,
+      "Total images:",
+      this.#images.length
+    );
   }
 }
 
@@ -300,7 +355,14 @@ class ImageFeed {
     this.imageNodes = [];
     this.sortOrder = storage.getJSONVal("SortOrder", "ID");
     this.lightbox = new Lightbox(this.getAllImages.bind(this));
+    this.lightbox.registerForUpdates(this.updateLightboxIfOpen.bind(this));
     this.observer = null;
+
+    setTimeout(() => {
+      const initialImages = this.getAllImages();
+      console.log("Initializing lightbox with images:", initialImages);
+      this.lightbox.initializeImages(initialImages);
+    }, 0);
   }
 
   async setup() {
@@ -353,6 +415,25 @@ class ImageFeed {
     );
   }
 
+  updateLightboxIfOpen() {
+    // Force a reflow to ensure DOM is up-to-date
+    this.imageFeed.offsetHeight;
+
+    const currentImages = this.getAllImages();
+    console.log("Updating lightbox with images:", currentImages);
+    this.lightbox.updateImageList(currentImages);
+    if (this.lightbox.isOpen()) {
+      this.lightbox.handleImageListChange(currentImages);
+    }
+  }
+
+  getCurrentState() {
+    return {
+      images: this.getAllImages(),
+      currentIndex: this.lightbox ? this.lightbox.getCurrentIndex() : 0,
+    };
+  }
+
   onExecutionStart({ detail }) {
     const filterEnabled = storage.getJSONVal("FilterEnabled", false);
     if (
@@ -376,6 +457,9 @@ class ImageFeed {
 
     console.log("Proceeding to handleExecuted");
     this.handleExecuted(detail);
+
+    // Update lightbox immediately
+    this.updateLightboxIfOpen();
   }
 
   handleExecuted(detail) {
@@ -393,14 +477,18 @@ class ImageFeed {
     const isNewBatch = newBatchIdentifier !== this.currentBatchIdentifier;
 
     if (isNewBatch) {
-      // If we're starting a new batch, create it
       this.createNewBatch(newestToOldest, newBatchIdentifier);
     }
 
     this.addImagesToBatch(detail, filterEnabled, newestToOldest);
 
     this.checkAndRemoveExtraImageBatches();
-    setTimeout(() => window.dispatchEvent(new Event("resize")), 1);
+
+    // Trigger a DOM update
+    this.imageFeed.offsetHeight;
+
+    // Update lightbox immediately after DOM changes
+    this.updateLightboxIfOpen();
   }
 
   ensureBatchContainer(newestToOldest) {
@@ -466,13 +554,13 @@ class ImageFeed {
       )}&type=${src.type}&subfolder=${encodeURIComponent(src.subfolder)}`;
       const timestampedUrl = `${baseUrl}&t=${+new Date()}`;
       const img = await this.loadImage(timestampedUrl);
+      img.dataset.baseUrl = baseUrl; // Store the non-timestamped URL
       const imageElement = this.createImageElement(
         img,
         timestampedUrl,
         baseUrl
       );
       const bars = batchContainer.querySelectorAll(".image-feed-vertical-bar");
-
       if (bars.length === 2) {
         // This is the first batch with two bars
         if (newestToOldest) {
@@ -489,6 +577,12 @@ class ImageFeed {
           batchContainer.appendChild(imageElement);
         }
       }
+
+      // Force a reflow
+      batchContainer.offsetHeight;
+
+      // Update lightbox immediately after adding new image
+      this.updateLightboxIfOpen();
     } catch (error) {
       console.error("Error adding image to batch", error);
       const placeholderImg = createElement("img", {
@@ -504,7 +598,8 @@ class ImageFeed {
     const anchor = createElement("a", {
       target: "_blank",
       href: timestampedUrl,
-      onclick: (e) => this.handleImageClick(e, timestampedUrl, baseUrl),
+      onclick: (e) =>
+        this.handleImageClick(e, timestampedUrl, img.dataset.baseUrl),
     });
     anchor.appendChild(img);
     imageElement.appendChild(anchor);
@@ -513,17 +608,29 @@ class ImageFeed {
 
   handleImageClick(e, timestampedUrl, baseUrl) {
     e.preventDefault();
-    const imgs = this.getAllImages();
-    const normalizedUrls = imgs.map((url) => url.split("&t=")[0]);
-    const baseUrlAbsolute = new URL(baseUrl, window.location.origin).href;
-    const imageIndex = normalizedUrls.indexOf(baseUrlAbsolute);
+    console.log("Image clicked. Base URL:", baseUrl);
+    const state = this.getCurrentState();
+    console.log("Current state:", state);
+    const absoluteBaseUrl = new URL(baseUrl, window.location.origin).href;
+    console.log("Absolute base URL:", absoluteBaseUrl);
+    const imageIndex = state.images.findIndex((img) =>
+      img.startsWith(absoluteBaseUrl)
+    );
+    console.log("Found image index:", imageIndex);
     if (imageIndex > -1) {
-      this.lightbox.show(imgs, imageIndex);
+      console.log("Opening lightbox with images:", state.images);
+      this.lightbox.show(state.images, imageIndex);
     } else {
       console.error(
-        "Clicked image not found in the list:",
-        new Error("Image not found")
+        "Clicked image not found in the list. Available images:",
+        state.images
       );
+      console.error("Clicked image URL:", absoluteBaseUrl);
+      // Fallback: If the exact URL is not found, open the lightbox with the first image
+      if (state.images.length > 0) {
+        console.log("Falling back to first image in lightbox");
+        this.lightbox.show(state.images, 0);
+      }
     }
   }
 
@@ -538,9 +645,13 @@ class ImageFeed {
 
   getAllImages() {
     const images = document.querySelectorAll(".tb-image-feed img");
-    return Array.from(images).map(
-      (img) => new URL(img.src, window.location.origin).href
-    );
+    const imageUrls = Array.from(images).map((img) => {
+      const url = new URL(img.src, window.location.origin);
+      url.searchParams.delete("t"); // Remove the timestamp parameter
+      return url.href;
+    });
+    console.log("All image URLs:", imageUrls);
+    return imageUrls;
   }
 
   checkAndRemoveExtraImageBatches() {
