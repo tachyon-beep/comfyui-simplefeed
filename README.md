@@ -1,31 +1,55 @@
-# comfyui-simplefeed
-A simple image feed for ComfyUI which is easily configurable and easily extensible. 
+# ComfyUI SimpleFeed
 
-I originally wrote this as a pull request to [custom-scripts](https://github.com/pythongosssss/ComfyUI-Custom-Scripts) but it was [quite reasonably] pushed back due to the scale and complexity of the changes. Both image feeds can run side by side, but you will probably want to hide one or the other (although this package provides no additional functionality—if you prefer the original, you might as well uninstall this).
+A simple, configurable, and extensible image feed module for ComfyUI. Originally proposed as a pull request to [ComfyUI Custom Scripts](https://github.com/pythongosssss/ComfyUI-Custom-Scripts), it was set aside due to its complexity. This module can operate alongside the original, offering no additional functionality; uninstall it if you prefer the original.
 
-You can use the filter button to select which nodes write images to the feed. This is helpful if multiple nodes (like kSampler previews) are providing copies of the same image.
+## Configuration Options
 
-Under settings, there are also options that allow you to:
- * Position the feed.
- * Set a maximum image count for the feed.
- * Sort the items in the feed from oldest to newest or newest to oldest.
+### Settings
+- **Visibility and Position:** Control the image feed's visibility and location.
+- **Image Count Limit:** Limit the number of images displayed.
+- **Sort Order:** Sort images by generation time, from oldest to newest or vice versa.
 
-Bug reports and feature suggestions are welcome, but I would like to keep this package lightweight.
+### Menu Options
+- **Node Filter Button:** Filter which nodes contribute images to the feed, managing duplicates. All images are included when the filter is off.
+- **Clear Button:** Remove all images from the tray without deleting them from your filesystem.
 
-Examples:
-![demo1](https://github.com/tachyon-beep/comfyui-simplefeed/assets/544926/406832d5-ef51-4a4a-8467-fca93623dbbe)
-![demo2](https://github.com/tachyon-beep/comfyui-simplefeed/assets/544926/de0a797b-2072-40ac-9fce-378fb4286ae1)
-![demo3](https://github.com/tachyon-beep/comfyui-simplefeed/assets/544926/def2656f-e37b-41b7-857a-aebfef037a8d)
+### Lightbox Guide
+- **Dynamic Updating:** Integrates new images as they're generated.
+- **Navigation Arrows:** Color-coded for functionality:
+  - **Black:** Inactive when only a single image is present.
+  - **Grey:** Navigate between images.
+  - **Orange:** Indicates the end of the feed; wraps to the start.
+- **Close Mechanism:** Exit the lightbox by clicking outside the image or buttons.
 
-INSTALL:
-1. Do one of the following:
-   - Use git to pull or clone the contents of this repo into the custom_nodes folder OR
-   - Create a subfolder in your custom_nodes folder and extract the contents of the repository into it OR
-   - Use the Install via Git URL button in ComfyUI Manager.
+## Installation
 
+### Using ComfyUI Manager
+1. Follow the [ComfyUI Manager Instructions](https://github.com/ltdrdata/ComfyUI-Manager).
+2. Search for 'ComfyUI Simple Feed' in the Custom Node Manager.
+3. Install and restart ComfyUI.
+
+### Manual Installation (Not Recommended)
+1. Clone or download the repository into the `custom_nodes` folder.
+2. Check that ComfyUI’s security settings allow manual installations.
+3. Restart ComfyUI after installation.
+
+## Uninstallation
+
+### Using ComfyUI Manager
+1. Locate 'ComfyUI Simple Feed' in the Custom Node Manager.
+2. Uninstall and restart ComfyUI.
+
+### Manual Uninstallation
+1. Delete the `comfyui-simplefeed` directory from your ComfyUI 'custom_nodes' folder.
 2. Restart ComfyUI.
 
-3. If you are using the new UI, go to the settings and under simpleTray toggle the Display Image Tray button. I'll fix this in the near future.
+## Version History
+- **1.0.0 (15 May 2024):** Initial release.
+- **1.0.1 (8 Sep 2024):** Added to ComfyUI Manager Registry.
+- **1.1.0 (11 Sept 2024):** Substantial updates to fix bugs, implement user requests and integrate with the new ComfyUI.
 
-UNINSTALL:
-1. Delete the custom_nodes/comfyui-simplefeed folder from your ComfyUI install and restart ComfyUI.
+## Examples
+
+![Sample Image 1](https://github.com/user-attachments/assets/0b5a60db-d324-4250-ae33-007d09db2555)
+![Sample Image 2](https://github.com/user-attachments/assets/9ce4e33f-1b24-48a2-97c2-9903e764ee80)
+![Sample Image 3](https://github.com/user-attachments/assets/3ee423fd-6992-45ea-a93e-96cf6bad0c34)
