@@ -664,107 +664,128 @@ class ImageFeed {
 
   adjustImageTray() {
     try {
-      const leftSideBar = document.querySelector(
-        ".comfyui-body-left .side-tool-bar-container"
-      );
-      const rightSideBar = document.querySelector(
-        ".comfyui-body-right .side-tool-bar-container"
-      );
-
-      let sideBar = leftSideBar || rightSideBar;
-      let sideBarWidth = sideBar?.offsetWidth || 0;
-      let sideBarPosition = leftSideBar
-        ? "left"
-        : rightSideBar
-        ? "right"
-        : "none";
-
-      // Set the CSS custom property
-      this.imageFeed.style.setProperty("--tb-left-offset", `${sideBarWidth}px`);
-
-      // Adjust the image feed position and width based on sidebar
-      if (sideBarPosition === "left") {
-        this.imageFeed.style.left = `${sideBarWidth}px`;
-        this.imageFeed.style.right = "0";
-      } else if (sideBarPosition === "right") {
-        this.imageFeed.style.left = "0";
-        this.imageFeed.style.right = `${sideBarWidth}px`;
-      } else {
-        this.imageFeed.style.left = "0";
-        this.imageFeed.style.right = "0";
-      }
-
-      this.imageFeed.style.width = `calc(100% - ${sideBarWidth}px)`;
-
-      const comfyuiMenu = document.querySelector("nav.comfyui-menu");
-      const feedHeight =
-        parseInt(
-          getComputedStyle(this.imageFeed).getPropertyValue("--tb-feed-height")
-        ) || 300;
-      this.imageFeed.style.height = `${feedHeight}px`;
-
-      const isMenuVisible = comfyuiMenu && comfyuiMenu.offsetParent !== null;
-
-      const feedLocation = storage.getJSONVal("Location", "bottom");
-      let imageFeedTop = 0;
-      let imageFeedBottom = 0;
-
-      if (feedLocation === "top") {
-        if (isMenuVisible) {
-          const menuRect = comfyuiMenu.getBoundingClientRect();
-          const isMenuAtTop = menuRect.top <= 1;
-          imageFeedTop = isMenuAtTop ? menuRect.height : 0;
-        }
-        this.imageFeed.style.top = `${imageFeedTop}px`;
-        this.imageFeed.style.bottom = "auto";
-      } else {
-        if (isMenuVisible) {
-          const menuRect = comfyuiMenu.getBoundingClientRect();
-          const isMenuAtBottom =
-            Math.abs(window.innerHeight - menuRect.bottom) <= 1;
-          imageFeedBottom = isMenuAtBottom ? menuRect.height : 0;
-        }
-        this.imageFeed.style.bottom = `${imageFeedBottom}px`;
-        this.imageFeed.style.top = "auto";
-      }
-
-      // Ensure the button panel moves with the tray, wrapped in requestAnimationFrame
-      requestAnimationFrame(() => this.adjustButtonPanelPosition());
-
-      if (!this.observer) {
-        this.observer = new MutationObserver(() => {
-          requestAnimationFrame(() => {
-            this.adjustImageTray();
-          });
-        });
-
-        if (comfyuiMenu) {
-          this.observer.observe(comfyuiMenu, {
-            attributes: true,
-            childList: true,
-            subtree: true,
-          });
-        }
-        if (sideBar) {
-          this.observer.observe(sideBar, {
-            attributes: true,
-            childList: true,
-            subtree: true,
-          });
-        }
-        this.observer.observe(this.imageFeed, {
-          attributes: true,
-          childList: true,
-          subtree: true,
-        });
-        // Observe the body for potential sidebar additions/removals
-        this.observer.observe(document.body, {
-          childList: true,
-          subtree: true,
-        });
-      }
+      this.updateSidebarAdjustments();
+      this.updateFeedDimensions();
+      this.updateFeedPosition();
+      this.setupObserver();
     } catch (error) {
       console.error("Error adjusting image tray:", error);
+    }
+  }
+
+  updateSidebarAdjustments() {
+    const { sideBar, sideBarWidth, sideBarPosition } = this.getSidebarInfo();
+    this.imageFeed.style.setProperty("--tb-left-offset", `${sideBarWidth}px`);
+    this.adjustFeedBasedOnSidebar(sideBarPosition, sideBarWidth);
+  }
+
+  getSidebarInfo() {
+    const leftSideBar = document.querySelector(
+      ".comfyui-body-left .side-tool-bar-container"
+    );
+    const rightSideBar = document.querySelector(
+      ".comfyui-body-right .side-tool-bar-container"
+    );
+    const sideBar = leftSideBar || rightSideBar;
+    const sideBarWidth = sideBar?.offsetWidth || 0;
+    const sideBarPosition = leftSideBar
+      ? "left"
+      : rightSideBar
+      ? "right"
+      : "none";
+    return { sideBar, sideBarWidth, sideBarPosition };
+  }
+
+  adjustFeedBasedOnSidebar(sideBarPosition, sideBarWidth) {
+    if (sideBarPosition === "left") {
+      this.imageFeed.style.left = `${sideBarWidth}px`;
+      this.imageFeed.style.right = "0";
+    } else if (sideBarPosition === "right") {
+      this.imageFeed.style.left = "0";
+      this.imageFeed.style.right = `${sideBarWidth}px`;
+    } else {
+      this.imageFeed.style.left = "0";
+      this.imageFeed.style.right = "0";
+    }
+    this.imageFeed.style.width = `calc(100% - ${sideBarWidth}px)`;
+  }
+
+  updateFeedDimensions() {
+    const feedHeight =
+      parseInt(
+        getComputedStyle(this.imageFeed).getPropertyValue("--tb-feed-height")
+      ) || 300;
+    this.imageFeed.style.height = `${feedHeight}px`;
+  }
+
+  updateFeedPosition() {
+    const comfyuiMenu = document.querySelector("nav.comfyui-menu");
+    const isMenuVisible = comfyuiMenu && comfyuiMenu.offsetParent !== null;
+    const feedLocation = storage.getJSONVal("Location", "bottom");
+
+    this.setFeedPosition(feedLocation, isMenuVisible, comfyuiMenu);
+    requestAnimationFrame(() => this.adjustButtonPanelPosition());
+  }
+
+  setFeedPosition(feedLocation, isMenuVisible, comfyuiMenu) {
+    if (feedLocation === "top") {
+      const imageFeedTop = this.calculateTopPosition(
+        isMenuVisible,
+        comfyuiMenu
+      );
+      this.imageFeed.style.top = `${imageFeedTop}px`;
+      this.imageFeed.style.bottom = "auto";
+    } else {
+      const imageFeedBottom = this.calculateBottomPosition(
+        isMenuVisible,
+        comfyuiMenu
+      );
+      this.imageFeed.style.bottom = `${imageFeedBottom}px`;
+      this.imageFeed.style.top = "auto";
+    }
+  }
+
+  calculateTopPosition(isMenuVisible, comfyuiMenu) {
+    if (isMenuVisible) {
+      const menuRect = comfyuiMenu.getBoundingClientRect();
+      return menuRect.top <= 1 ? menuRect.height : 0;
+    }
+    return 0;
+  }
+
+  calculateBottomPosition(isMenuVisible, comfyuiMenu) {
+    if (isMenuVisible) {
+      const menuRect = comfyuiMenu.getBoundingClientRect();
+      return Math.abs(window.innerHeight - menuRect.bottom) <= 1
+        ? menuRect.height
+        : 0;
+    }
+    return 0;
+  }
+
+  setupObserver() {
+    if (this.observer) return;
+
+    this.observer = new MutationObserver(() => {
+      requestAnimationFrame(() => this.adjustImageTray());
+    });
+
+    const { sideBar } = this.getSidebarInfo();
+    const comfyuiMenu = document.querySelector("nav.comfyui-menu");
+
+    this.observeElement(comfyuiMenu);
+    this.observeElement(sideBar);
+    this.observeElement(this.imageFeed);
+    this.observeElement(document.body);
+  }
+
+  observeElement(element) {
+    if (element) {
+      this.observer.observe(element, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+      });
     }
   }
 
