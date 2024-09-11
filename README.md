@@ -19,7 +19,6 @@ A simple, configurable, and extensible image feed module for ComfyUI. Originally
   - **Black:** Inactive when only a single image is present.
   - **Grey:** Navigate between images.
   - **Orange:** Indicates the end of the feed; wraps to the start.
-- **Close Mechanism:** Exit the lightbox by clicking outside the image or buttons.
 
 ## Installation
 
