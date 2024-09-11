@@ -1,6 +1,6 @@
 # ComfyUI SimpleFeed
 
-A simple, configurable, and extensible image feed module for ComfyUI. Originally proposed as a pull request to [ComfyUI Custom Scripts](https://github.com/pythongosssss/ComfyUI-Custom-Scripts), it was set aside due to its complexity. This module can operate alongside the original, offering no additional functionality; uninstall it if you prefer the original.
+A simple, configurable, and extensible image feed module for ComfyUI. Originally proposed as a pull request to [ComfyUI Custom Scripts](https://github.com/pythongosssss/ComfyUI-Custom-Scripts), it was set aside due to the scale of the changes. This module can operate alongside the original, offering no additional functionality; uninstall it if you prefer the original.
 
 ## Configuration Options
 
