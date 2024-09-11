@@ -1300,9 +1300,9 @@ const styles = `
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.8); /* Slightly transparent white background */
     color: #333;
-    border: none;
+    border: 2px solid rgba(0, 0, 0, 0.1); /* Subtle border for contrast */
     border-radius: 8px;
     box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.15);
     cursor: pointer;
