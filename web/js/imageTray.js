@@ -41,7 +41,7 @@ class Lightbox {
     const prevInner = this.#createElement("div", "arrow-inner", this.#prev);
 
     // Create an arrow shape inside the prevInner (a simple div for the arrow)
-    const prevArrow = this.#createElement("div", "arrow-shape", prevInner);
+    //const prevArrow = this.#createElement("div", "arrow-shape", prevInner);
 
     const main = this.#createElement("div", "lightbox__main", this.#el);
 
@@ -49,7 +49,7 @@ class Lightbox {
     const nextInner = this.#createElement("div", "arrow-inner", this.#next);
 
     // Create an arrow shape inside the nextInner (a simple div for the arrow)
-    const nextArrow = this.#createElement("div", "arrow-shape", nextInner);
+    //const nextArrow = this.#createElement("div", "arrow-shape", nextInner);
 
     this.#link = this.#createElement("a", "lightbox__link", main, {
       target: "_blank",
@@ -103,7 +103,7 @@ class Lightbox {
 
     if (innerArrow) {
       innerArrow.classList.remove("arrow-click-effect");
-      void innerArrow.offsetWidth; // Force a reflow
+      const _ = innerArrow.offsetWidth;
       innerArrow.classList.add("arrow-click-effect");
 
       innerArrow.addEventListener(
@@ -277,7 +277,7 @@ const ELIGIBLE_NODES = [
 const storage = {
   getVal: (key, defaultValue) => {
     const value = localStorage.getItem(PREFIX + key);
-    return value === null ? defaultValue : value.replace(/^"|"$/g, "");
+    return value === null ? defaultValue : value.replace(/^"(.*)"$/g, "$1");
   },
   setVal: (key, value) => {
     localStorage.setItem(
@@ -625,7 +625,7 @@ class ImageFeed {
   }
 
   async showNodeFilter() {
-    const overlay = await this.loadModal();
+    //const overlay = await this.loadModal();
     this.createImageNodeList();
     this.setNodeSelectorVisibility(true);
   }
