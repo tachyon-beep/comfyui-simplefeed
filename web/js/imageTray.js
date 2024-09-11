@@ -92,13 +92,18 @@ class Lightbox {
     document.addEventListener("keydown", this.#handleKeyDown.bind(this));
   }
 
+  forceReflow(element) {
+    // Reading a property that requires layout will force a reflow
+    return element.offsetHeight;
+  }
+
   #triggerArrowClickEffect(arrowElement) {
     const innerArrow = arrowElement.querySelector(".arrow-inner");
 
     if (innerArrow) {
       innerArrow.classList.remove("arrow-click-effect");
       // Force a reflow by getting and setting a layout property
-      innerArrow.style.display = innerArrow.style.display;
+      this.forceReflow(innerArrow);
       innerArrow.classList.add("arrow-click-effect");
 
       innerArrow.addEventListener(
@@ -392,13 +397,19 @@ class ImageFeed {
 
   updateLightboxIfOpen() {
     // Force a reflow to ensure DOM is up-to-date
-    this.imageFeed.offsetHeight;
+    this.forceReflow(this.imageFeed);
 
     const currentImages = this.getAllImages();
     this.lightbox.updateImageList(currentImages);
     if (this.lightbox.isOpen()) {
       this.lightbox.handleImageListChange(currentImages);
     }
+  }
+
+  // Add this method to your class
+  forceReflow(element) {
+    // Reading a property that requires layout will force a reflow
+    return element.offsetHeight;
   }
 
   getCurrentState() {
@@ -450,7 +461,7 @@ class ImageFeed {
     this.checkAndRemoveExtraImageBatches();
 
     // Trigger a DOM update
-    this.imageFeed.offsetHeight;
+    this.forceReflow(this.imageFeed);
 
     // Update lightbox immediately after DOM changes
     this.updateLightboxIfOpen();
@@ -526,7 +537,7 @@ class ImageFeed {
       }
 
       // Force a reflow
-      batchContainer.offsetHeight;
+      this.forceReflow(batchContainer);
 
       // Update lightbox immediately after adding new image
       this.updateLightboxIfOpen();
