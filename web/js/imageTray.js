@@ -1,9 +1,13 @@
 ﻿/**
- * This project is based on the imagetray from the ComfyUI - Custom Scripts project
+ * A simple image feed tray and lightbox for ComfyUI.
+ * Repository: https://github.com/tachyon-beep/comfyui-simplefeed
+ * License: MIT License
+ * Author: John Morrissey (tachyon-beep)
+ * Year: 2024
+ *
+ * Based on the imagetray from the ComfyUI - Custom Scripts extension by pythongosssss
  * Repository: https://github.com/pythongosssss/ComfyUI-Custom-Scripts
  * License: MIT License
- * Author: pythongosssss
- *
  */
 
 import { api } from "../../../scripts/api.js";
