@@ -663,13 +663,37 @@ class ImageFeed {
 
   adjustImageTray() {
     try {
-      const sideBar = document.querySelector(
+      const leftSideBar = document.querySelector(
         ".comfyui-body-left .side-tool-bar-container"
       );
-      const sideBarWidth = sideBar?.offsetWidth || 0;
+      const rightSideBar = document.querySelector(
+        ".comfyui-body-right .side-tool-bar-container"
+      );
+
+      let sideBar = leftSideBar || rightSideBar;
+      let sideBarWidth = sideBar?.offsetWidth || 0;
+      let sideBarPosition = leftSideBar
+        ? "left"
+        : rightSideBar
+        ? "right"
+        : "none";
+
+      // Set the CSS custom property
       this.imageFeed.style.setProperty("--tb-left-offset", `${sideBarWidth}px`);
+
+      // Adjust the image feed position and width based on sidebar
+      if (sideBarPosition === "left") {
+        this.imageFeed.style.left = `${sideBarWidth}px`;
+        this.imageFeed.style.right = "0";
+      } else if (sideBarPosition === "right") {
+        this.imageFeed.style.left = "0";
+        this.imageFeed.style.right = `${sideBarWidth}px`;
+      } else {
+        this.imageFeed.style.left = "0";
+        this.imageFeed.style.right = "0";
+      }
+
       this.imageFeed.style.width = `calc(100% - ${sideBarWidth}px)`;
-      this.imageFeed.style.left = `${sideBarWidth}px`;
 
       const comfyuiMenu = document.querySelector("nav.comfyui-menu");
       const feedHeight =
@@ -706,20 +730,34 @@ class ImageFeed {
       // Ensure the button panel moves with the tray, wrapped in requestAnimationFrame
       requestAnimationFrame(() => this.adjustButtonPanelPosition());
 
-      if (!this.observer && comfyuiMenu) {
+      if (!this.observer) {
         this.observer = new MutationObserver(() => {
           requestAnimationFrame(() => {
             this.adjustImageTray();
           });
         });
 
-        this.observer.observe(comfyuiMenu, {
+        if (comfyuiMenu) {
+          this.observer.observe(comfyuiMenu, {
+            attributes: true,
+            childList: true,
+            subtree: true,
+          });
+        }
+        if (sideBar) {
+          this.observer.observe(sideBar, {
+            attributes: true,
+            childList: true,
+            subtree: true,
+          });
+        }
+        this.observer.observe(this.imageFeed, {
           attributes: true,
           childList: true,
           subtree: true,
         });
-        this.observer.observe(this.imageFeed, {
-          attributes: true,
+        // Observe the body for potential sidebar additions/removals
+        this.observer.observe(document.body, {
           childList: true,
           subtree: true,
         });
@@ -730,11 +768,20 @@ class ImageFeed {
   }
 
   adjustButtonPanelPosition() {
-    const imageFeedRect = this.imageFeed.getBoundingClientRect();
-    const topPosition = imageFeedRect.top + 10; // 10px offset from the top of the image feed
+    const buttonPanel = this.buttonPanel;
+    if (!buttonPanel) return;
 
-    this.buttonPanel.style.top = `${topPosition}px`;
-    this.buttonPanel.style.bottom = "auto";
+    const imageFeedRect = this.imageFeed.getBoundingClientRect();
+
+    // Always position at the top-right corner of the image tray
+    buttonPanel.style.top = `${imageFeedRect.top + 10}px`;
+    buttonPanel.style.right = `${
+      window.innerWidth - imageFeedRect.right + 10
+    }px`;
+
+    // Clear other positioning
+    buttonPanel.style.bottom = "auto";
+    buttonPanel.style.left = "auto";
   }
 
   waitForSideToolbar() {
