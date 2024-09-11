@@ -1211,28 +1211,26 @@ const styles = `
 
   .tb-image-feed-list {
     display: flex;
-    overflow-x: auto;
+    overflow-x: auto;  /* Enable horizontal scrolling */
     overflow-y: hidden;
-    scrollbar-width: auto;
     height: 100%;
     width: 100%;
+    white-space: nowrap; /* Prevent wrapping */
   }
 
   .image-batch-container {
     display: flex;
     align-items: center;
     height: 100%;
-    overflow: hidden;
-    white-space: nowrap;
+    flex-shrink: 0; /* Prevent shrinking */
   }
 
   .image-container {
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow: hidden;
     height: 100%;
-    width: auto;
+    flex-shrink: 0; /* Prevent shrinking */
   }
 
   .image-container a {
@@ -1242,8 +1240,8 @@ const styles = `
 
   .image-container img {
     height: 100%;
-    width: auto;
-    object-fit: contain;
+    width: auto; /* Maintain aspect ratio */
+    object-fit: contain; /* Ensure entire image is visible */
   }
 
   .image-feed-vertical-bar {
