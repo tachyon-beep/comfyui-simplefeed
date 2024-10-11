@@ -30,6 +30,7 @@ class Lightbox {
     this.getImages = getImagesFunction;
     this.#createElements();
     this.#addEventListeners();
+    this.scale = 1;
   }
 
   #createElements() {
@@ -90,6 +91,24 @@ class Lightbox {
 
     // Handle keyboard navigation
     document.addEventListener("keydown", this.#handleKeyDown.bind(this));
+
+  // Add wheel event listener for zoom
+  this.#img.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY || e.wheelDelta;
+    const zoomFactor = 1.1;
+    if (delta < 0) {
+      // Zoom in
+      this.scale *= zoomFactor;
+    } else {
+      // Zoom out
+      this.scale /= zoomFactor;
+    }
+    // Limit the scale to a reasonable range
+    this.scale = Math.min(Math.max(this.scale, 0.5), 5);
+    this.#img.style.transform = `scale(${this.scale})`;
+  });
+
   }
 
   forceReflow(element) {
@@ -1254,18 +1273,20 @@ const styles = `
     justify-content: center;
     align-items: center;
     height: 100%;
-    flex-shrink: 0; /* Prevent shrinking */
+    width: auto; /* Allow the container to adjust its width */
   }
 
-  .image-container a {
-    display: flex;
-    height: 100%;
-  }
+    .image-container a {
+      display: flex;
+      height: 100%;
+    }
 
   .image-container img {
-    height: 100%;
-    width: auto; /* Maintain aspect ratio */
-    object-fit: contain; /* Ensure entire image is visible */
+    max-height: 100%;
+    max-width: 100%;
+    height: auto;
+    width: auto;
+    object-fit: contain; /* Ensure the entire image is visible */
   }
 
   .image-feed-vertical-bar {
@@ -1440,7 +1461,8 @@ const lightboxStyles = `
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-out;
+  transform-origin: center center;  
 }
 
 /* Base styles for arrow buttons */
