@@ -1,6 +1,6 @@
 ﻿/**
  * A simple image feed tray and lightbox for ComfyUI.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Repository: https://github.com/tachyon-beep/comfyui-simplefeed
  * License: MIT License
  * Author: John Morrissey (tachyon-beep)
@@ -15,6 +15,15 @@ import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { $el } from "../../../scripts/ui.js";
 
+function debounce(func, wait) {
+  let timeout;
+  return function (...args) {
+    const context = this;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(context, args), wait);
+  };
+}
+
 class Lightbox {
   #el;
   #img;
@@ -28,9 +37,188 @@ class Lightbox {
 
   constructor(getImagesFunction) {
     this.getImages = getImagesFunction;
+    this.scale = 1;
+    this.isPanning = false;
+    this.startX = 0;
+    this.startY = 0;
+    this.panX = 0;
+    this.panY = 0;
+    //this.maxScale = 1; 
+    this.containerScale = 1;
+    this.imageScale = 1;
+
+    // Bind methods and store them
+    this.startPanHandler = this.#startPan.bind(this);
+    this.panHandler = this.#pan.bind(this);
+    this.endPanHandler = this.#endPan.bind(this);
+    this.handleKeyDownHandler = this.#handleKeyDown.bind(this);
+    this.handleZoomHandler = this.#handleZoom.bind(this);
+    this.resetZoomPanHandler = this.#resetZoomPan.bind(this);
     this.#createElements();
     this.#addEventListeners();
-    this.scale = 1;
+  }
+
+  #handleZoom(e) {
+    e.preventDefault();
+    let delta = e.deltaY;
+
+    // Normalize deltaY for consistent behavior across browsers
+    if (delta === 0) {
+      delta = e.wheelDelta ? -e.wheelDelta : 0;
+    }
+
+    // Determine the zoom direction
+    const zoomFactor = 1.1;
+
+    // Maximum container size (80% of window size)
+    const maxContainerWidth = window.innerWidth * 0.8;
+    const maxContainerHeight = window.innerHeight * 0.8;
+
+    // Minimum container size (original image size)
+    const minContainerWidth = this.originalWidth;
+    const minContainerHeight = this.originalHeight;
+
+    // Current container dimensions
+    let containerWidth = this.originalWidth * this.containerScale;
+    let containerHeight = this.originalHeight * this.containerScale;
+
+    if (delta < 0) {
+      // Zoom in
+      if (containerWidth < maxContainerWidth && containerHeight < maxContainerHeight) {
+        // Increase container size
+        this.containerScale *= zoomFactor;
+      } else {
+        // Increase image scale
+        this.imageScale *= zoomFactor;
+      }
+    } else if (delta > 0) {
+      // Zoom out
+      if (this.imageScale > 1) {
+        // Decrease image scale
+        this.imageScale /= zoomFactor;
+      } else if (this.containerScale > 1) {
+        // Decrease container size
+        this.containerScale /= zoomFactor;
+      }
+    }
+
+    // Ensure scales are within bounds
+    this.containerScale = Math.max(this.containerScale, 1);
+    this.imageScale = Math.max(this.imageScale, 1);
+
+    containerWidth = this.originalWidth * this.containerScale;
+    containerHeight = this.originalHeight * this.containerScale;
+
+    // Ensure container does not exceed max size
+    containerWidth = Math.min(containerWidth, maxContainerWidth);
+    containerHeight = Math.min(containerHeight, maxContainerHeight);
+
+    // Apply container size
+    this.#link.style.width = `${containerWidth}px`;
+    this.#link.style.height = `${containerHeight}px`;
+
+    // Update pan bounds
+    this.#updatePanBounds();
+
+    // Update image transform
+    this.#updateImageTransform();
+    this.#updateCursor();
+
+    // Reset pan offsets if panning is not possible
+    if (this.maxPanX <= 0 && this.maxPanY <= 0) {
+      this.panX = 0;
+      this.panY = 0;
+      this.isPanning = false;
+    }
+  }
+
+  #startPan(e) {
+    // Update pan bounds
+    this.#updatePanBounds();
+    const canPan = this.maxPanX > 0 || this.maxPanY > 0;
+
+    if (canPan && e.button === 0) { // Left mouse button
+      e.preventDefault();
+      this.isPanning = true;
+      this.startX = e.clientX - this.panX;
+      this.startY = e.clientY - this.panY;
+      this.#img.style.cursor = 'grabbing';
+    }
+  }
+
+  #pan(e) {
+    if (this.isPanning) {
+      this.panX = e.clientX - this.startX;
+      this.panY = e.clientY - this.startY;
+
+      // Constrain panX and panY within bounds
+      this.panX = Math.min(Math.max(this.panX, -this.maxPanX), this.maxPanX);
+      this.panY = Math.min(Math.max(this.panY, -this.maxPanY), this.maxPanY);
+
+      this.#updateImageTransform();
+    }
+  }
+
+  #updatePanBounds() {
+    const containerRect = this.#link.getBoundingClientRect();
+
+    const scaledWidth = this.originalWidth * this.containerScale * this.imageScale;
+    const scaledHeight = this.originalHeight * this.containerScale * this.imageScale;
+
+    const maxPanX = Math.max((scaledWidth - containerRect.width) / 2, 0);
+    const maxPanY = Math.max((scaledHeight - containerRect.height) / 2, 0);
+
+    this.maxPanX = maxPanX;
+    this.maxPanY = maxPanY;
+  }
+
+  #endPan(e) {
+    if (e.button === 0) { // Left mouse button
+      this.isPanning = false;
+      this.#updateCursor();
+    }
+  }
+
+  #resetZoomPan() {
+    this.containerScale = 1;
+    this.imageScale = 1;
+    this.panX = 0;
+    this.panY = 0;
+    this.isPanning = false;
+
+    // Reset container size
+    this.#link.style.width = `${this.originalWidth}px`;
+    this.#link.style.height = `${this.originalHeight}px`;
+
+    this.#updateImageTransform();
+    this.#updateCursor();
+  }
+
+  #updateImageTransform() {
+    if (this.imageScale <= 1) {
+      // Reset pan and scale
+      this.panX = 0;
+      this.panY = 0;
+      this.#img.style.transform = `scale(1)`;
+    } else {
+      // Constrain panX and panY within bounds
+      this.panX = Math.min(Math.max(this.panX, -this.maxPanX), this.maxPanX);
+      this.panY = Math.min(Math.max(this.panY, -this.maxPanY), this.maxPanY);
+
+      // Apply transform
+      this.#img.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.imageScale})`;
+    }
+  }
+
+  #updateCursor() {
+    // Check if panning is possible
+    const canPan = this.maxPanX > 0 || this.maxPanY > 0;
+
+    if (canPan) {
+      this.#img.style.cursor = this.isPanning ? 'grabbing' : 'grab';
+    } else {
+      this.#img.style.cursor = 'auto';
+    }
   }
 
   #createElements() {
@@ -86,29 +274,23 @@ class Lightbox {
       this.#update(1);
     });
 
+    // Add event listenersfor zoom and pan using stored handlers
+    this.#img.addEventListener('mousedown', this.startPanHandler);
+    document.addEventListener('mousemove', this.panHandler);
+    document.addEventListener('mouseup', this.endPanHandler);
+    document.addEventListener('keydown', this.handleKeyDownHandler);
+    this.#img.addEventListener('wheel', this.handleZoomHandler);
+    this.#img.addEventListener('dblclick', this.resetZoomPanHandler);
+
     // Stop propagation when clicking on the image itself (to avoid closing the lightbox)
     this.#img.addEventListener("click", (e) => e.stopPropagation());
 
-    // Handle keyboard navigation
-    document.addEventListener("keydown", this.#handleKeyDown.bind(this));
-
-  // Add wheel event listener for zoom
-  this.#img.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const delta = e.deltaY || e.wheelDelta;
-    const zoomFactor = 1.1;
-    if (delta < 0) {
-      // Zoom in
-      this.scale *= zoomFactor;
-    } else {
-      // Zoom out
-      this.scale /= zoomFactor;
-    }
-    // Limit the scale to a reasonable range
-    this.scale = Math.min(Math.max(this.scale, 0.5), 5);
-    this.#img.style.transform = `scale(${this.scale})`;
-  });
-
+    // Prevent context menu when panning
+    this.#img.addEventListener('contextmenu', (e) => {
+      if (this.isPanning) {
+        e.preventDefault();
+      }
+    });
   }
 
   forceReflow(element) {
@@ -163,7 +345,16 @@ class Lightbox {
 
   close() {
     this.#el.style.opacity = 0;
-    setTimeout(() => (this.#el.style.display = "none"), 200);
+    setTimeout(() => {
+      this.#el.style.display = "none";
+      // Remove event listeners
+      document.removeEventListener('mousemove', this.panHandler);
+      document.removeEventListener('mouseup', this.endPanHandler);
+      document.removeEventListener('keydown', this.handleKeyDownHandler);
+      this.#img.removeEventListener('mousedown', this.startPanHandler);
+      this.#img.removeEventListener('wheel', this.handleZoomHandler);
+      this.#img.removeEventListener('dblclick', this.resetZoomPanHandler);
+    }, 200);
   }
 
   initializeImages(images) {
@@ -192,6 +383,10 @@ class Lightbox {
       await this.#loadImage(img);
       this.#link.href = img;
       this.#img.src = img;
+
+      this.originalWidth = this.#img.naturalWidth;
+      this.originalHeight = this.#img.naturalHeight;
+
       this.#img.style.opacity = 1;
     } catch (err) {
       console.error("Failed to load image:", img, err);
@@ -199,6 +394,21 @@ class Lightbox {
     } finally {
       this.#spinner.style.display = "none";
     }
+
+    this.originalWidth = this.#img.naturalWidth;
+    this.originalHeight = this.#img.naturalHeight;
+
+      // Set initial container size
+      this.containerScale = 1;
+      this.imageScale = 1;
+      this.panX = 0;
+      this.panY = 0;
+
+      this.#link.style.width = `${this.originalWidth}px`;
+      this.#link.style.height = `${this.originalHeight}px`;
+
+      this.#updateImageTransform();
+      this.#updateCursor();
   }
 
   #updateArrowStyles() {
@@ -334,14 +544,6 @@ const createElement = (type, options = {}) => {
     }
   });
   return element;
-};
-
-const debounce = (func, wait) => {
-  let timeout;
-  return function (...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
 };
 
 class ImageFeed {
@@ -1456,14 +1658,22 @@ const lightboxStyles = `
   max-height: 90%;
 }
 
-/* The image itself */
-.lightbox__img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  transition: opacity 0.2s ease-in-out, transform 0.2s ease-out;
-  transform-origin: center center;  
+.lightbox__link {
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Remove max-width and max-height if present */
 }
+
+.lightbox__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.2s ease-in-out, transform 0.1s ease-out;
+  transform-origin: center center;
+}
+
 
 /* Base styles for arrow buttons */
 .lightbox__prev, .lightbox__next {
