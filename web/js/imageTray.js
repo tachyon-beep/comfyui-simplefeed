@@ -115,11 +115,14 @@ class Lightbox {
     containerHeight = Math.min(containerHeight, maxContainerHeight);
 
     // Apply container size
+    this.#link.style.transition = 'width 0.3s ease, height 0.3s ease';
     this.#link.style.width = `${containerWidth}px`;
     this.#link.style.height = `${containerHeight}px`;
 
     // Update pan bounds
     this.#updatePanBounds();
+
+    this.#img.style.transition = 'transform 0.3s ease';
 
     // Update image transform
     this.#updateImageTransform();
@@ -131,6 +134,11 @@ class Lightbox {
       this.panY = 0;
       this.isPanning = false;
     }
+
+    setTimeout(() => {
+      this.#link.style.transition = '';
+      this.#img.style.transition = '';
+    }, 300);
   }
 
   #startPan(e) {
@@ -1639,6 +1647,7 @@ const lightboxStyles = `
   display: none;
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
+
   z-index: 1000;
 }
 
@@ -1650,6 +1659,8 @@ const lightboxStyles = `
   transform: translate(-50%, -50%);
   max-width: 90%;
   max-height: 90%;
+  border: 2px solid yellow;
+  box-sizing: border-box;   
 }
 
 .lightbox__link {
