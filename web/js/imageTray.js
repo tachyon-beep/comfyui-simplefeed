@@ -359,13 +359,6 @@ class Lightbox {
     this.#el.style.opacity = 0;
     setTimeout(() => {
       this.#el.style.display = "none";
-      // Remove event listeners
-      document.removeEventListener('mousemove', this.panHandler);
-      document.removeEventListener('mouseup', this.endPanHandler);
-      document.removeEventListener('keydown', this.handleKeyDownHandler);
-      this.#img.removeEventListener('mousedown', this.startPanHandler);
-      this.#img.removeEventListener('wheel', this.handleZoomHandler);
-      this.#img.removeEventListener('dblclick', this.resetZoomPanHandler);
     }, 200);
   }
 
