@@ -930,6 +930,8 @@ class ImageFeed {
   }
 
   adjustFeedBasedOnSidebar(sideBarPosition, sideBarWidth) {
+    this.fixedOffset = 70;
+
     if (sideBarPosition === "left") {
       this.imageFeed.style.left = `${sideBarWidth}px`;
       this.imageFeed.style.right = "0";
@@ -940,7 +942,9 @@ class ImageFeed {
       this.imageFeed.style.left = "0";
       this.imageFeed.style.right = "0";
     }
-    this.imageFeed.style.width = `calc(100% - ${sideBarWidth}px)`;
+    
+    // Fixed offset - This is a hack until the UI devs stop adding random shit.
+    this.imageFeed.style.width = `calc(100% - ${sideBarWidth + this.fixedOffset}px)`;
   }
 
   updateFeedDimensions() {
