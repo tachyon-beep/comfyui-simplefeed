@@ -46,6 +46,7 @@ class Lightbox {
     //this.maxScale = 1; 
     this.containerScale = 1;
     this.imageScale = 1;
+    this.mouseMovedDuringPan = false;
 
     // Bind methods and store them
     this.startPanHandler = this.#startPan.bind(this);
@@ -140,6 +141,7 @@ class Lightbox {
     if (canPan && e.button === 0) { // Left mouse button
       e.preventDefault();
       this.isPanning = true;
+      this.mouseMovedDuringPan = false;      
       this.startX = e.clientX - this.panX;
       this.startY = e.clientY - this.panY;
       this.#img.style.cursor = 'grabbing';
@@ -151,10 +153,12 @@ class Lightbox {
       this.panX = e.clientX - this.startX;
       this.panY = e.clientY - this.startY;
 
+      this.mouseMovedDuringPan = true;
+
       // Constrain panX and panY within bounds
       this.panX = Math.min(Math.max(this.panX, -this.maxPanX), this.maxPanX);
       this.panY = Math.min(Math.max(this.panY, -this.maxPanY), this.maxPanY);
-
+     
       this.#updateImageTransform();
     }
   }
@@ -234,14 +238,14 @@ class Lightbox {
     this.#next = this.#createElement("div", "lightbox__next", this.#el);
     this.#createElement("div", "arrow-inner", this.#next);
 
-    this.#link = this.#createElement("a", "lightbox__link", main, {
-      target: "_blank",
-    });
+    // Replace anchor with div
+    this.#link = this.#createElement("div", "lightbox__link", main);
 
     this.#spinner = this.#createElement("div", "lightbox__spinner", this.#link);
     this.#img = this.#createElement("img", "lightbox__img", this.#link);
     document.body.appendChild(this.#el);
   }
+
 
   #createElement(tag, className, parent, attrs = {}) {
     const el = document.createElement(tag);
@@ -275,6 +279,14 @@ class Lightbox {
     });
 
     // Add event listenersfor zoom and pan using stored handlers
+    // Handle click on the image to open in a new tab
+    this.#img.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent the lightbox from closing
+      //if (!this.isPanning && !this.mouseMovedDuringPan) {
+      //  window.open(this.#img.src, "_blank");
+      //}
+    });
+
     this.#img.addEventListener('mousedown', this.startPanHandler);
     document.addEventListener('mousemove', this.panHandler);
     document.addEventListener('mouseup', this.endPanHandler);
@@ -381,7 +393,7 @@ class Lightbox {
     this.#spinner.style.display = "block";
     try {
       await this.#loadImage(img);
-      this.#link.href = img;
+      //this.#link.href = img;
       this.#img.src = img;
 
       this.originalWidth = this.#img.naturalWidth;
@@ -774,14 +786,8 @@ class ImageFeed {
 
   createImageElement(img, timestampedUrl, baseUrl) {
     const imageElement = createElement("div", { className: "image-container" });
-    const anchor = createElement("a", {
-      target: "_blank",
-      href: timestampedUrl,
-      onclick: (e) =>
-        this.handleImageClick(e, timestampedUrl, img.dataset.baseUrl),
-    });
-    anchor.appendChild(img);
-    imageElement.appendChild(anchor);
+    img.onclick = (e) => this.handleImageClick(e, timestampedUrl, baseUrl);
+    imageElement.appendChild(img);
     return imageElement;
   }
 
@@ -1477,11 +1483,6 @@ const styles = `
     height: 100%;
     width: auto; /* Allow the container to adjust its width */
   }
-
-    .image-container a {
-      display: flex;
-      height: 100%;
-    }
 
   .image-container img {
     max-height: 100%;
