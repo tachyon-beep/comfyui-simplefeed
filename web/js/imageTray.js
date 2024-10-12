@@ -104,21 +104,15 @@ class Lightbox {
       }
     }
 
-    // Recalculate containerWidth and containerHeight
-    let containerWidth = this.originalWidth * this.containerScale;
-    let containerHeight = this.originalHeight * this.containerScale;
-
-    // Ensure container does not exceed max size
-    const maxContainerWidth = window.innerWidth * 0.8;
-    const maxContainerHeight = window.innerHeight * 0.8;
-
-    containerWidth = Math.min(containerWidth, maxContainerWidth);
-    containerHeight = Math.min(containerHeight, maxContainerHeight);
+    // Recalculate containerSize so that if your image is a weird size, you can still use pan and zoom effectively.
+    const maxContainerSize = Math.min(window.innerWidth, window.innerHeight) * 0.70;
+    let containerSize = Math.max(this.originalWidth, this.originalHeight) * this.containerScale;
+    containerSize = Math.min(containerSize, maxContainerSize);
 
     // Apply container size with smooth transition
     this.#link.style.transition = 'width 0.3s ease, height 0.3s ease';
-    this.#link.style.width = `${containerWidth}px`;
-    this.#link.style.height = `${containerHeight}px`;
+    this.#link.style.width = `${containerSize}px`;
+    this.#link.style.height = `${containerSize}px`;
 
     // Update pan bounds after scaling
     this.#updatePanBounds();
@@ -176,18 +170,16 @@ class Lightbox {
       return;
     }
 
-    const containerRect = this.#link.getBoundingClientRect();
+    const containerSize = this.#link.getBoundingClientRect().width; // Since it's square
 
-    const scaledWidth = this.originalWidth * this.containerScale * this.imageScale;
-    const scaledHeight = this.originalHeight * this.containerScale * this.imageScale;
+    const scaledImageSize = Math.max(this.originalWidth, this.originalHeight) * this.containerScale * this.imageScale;
 
-    const maxPanX = Math.max((scaledWidth - containerRect.width) / 2, 0);
-    const maxPanY = Math.max((scaledHeight - containerRect.height) / 2, 0);
+    const maxPan = Math.max((scaledImageSize - containerSize) / 2, 0);
 
     // Introduce a small threshold to prevent negligible pan values
     const threshold = 1; // pixels
-    this.maxPanX = maxPanX > threshold ? maxPanX : 0;
-    this.maxPanY = maxPanY > threshold ? maxPanY : 0;
+    this.maxPanX = maxPan > threshold ? maxPan : 0;
+    this.maxPanY = maxPan > threshold ? maxPan : 0;
   }
 
   #resetZoomPan() {
@@ -298,12 +290,10 @@ class Lightbox {
     window.addEventListener('resize', () => {
       if (this.isOpen()) {
         // Recalculate maxScale based on new viewport size
-        const maxContainerWidth = window.innerWidth * 0.8;
-        const maxContainerHeight = window.innerHeight * 0.8;
+        const maxContainerSize = Math.min(window.innerWidth, window.innerHeight) * 0.75; // Changed from 0.8 to 0.75
 
-        const maxScaleWidth = maxContainerWidth / this.originalWidth;
-        const maxScaleHeight = maxContainerHeight / this.originalHeight;
-        this.maxScale = Math.min(maxScaleWidth, maxScaleHeight);
+        const maxScaleWidth = maxContainerSize / Math.max(this.originalWidth, this.originalHeight);
+        this.maxScale = Math.min(maxScaleWidth, 1);
 
         // Adjust containerScale based on new maxScale
         if (this.maxScale < 1) {
@@ -312,8 +302,13 @@ class Lightbox {
           this.containerScale = Math.max(this.containerScale, 1);
         }
 
-        this.#link.style.width = `${this.originalWidth * this.containerScale}px`;
-        this.#link.style.height = `${this.originalHeight * this.containerScale}px`;
+        // Set container size based on the longest dimension
+        const maxImageDimension = Math.max(this.originalWidth, this.originalHeight);
+        let containerSize = maxImageDimension * this.containerScale;
+        containerSize = Math.min(containerSize, maxContainerSize);
+
+        this.#link.style.width = `${containerSize}px`;
+        this.#link.style.height = `${containerSize}px`;
 
         this.#updatePanBounds();
         this.#updateImageTransform();
@@ -451,13 +446,12 @@ class Lightbox {
       this.originalWidth = this.#img.naturalWidth;
       this.originalHeight = this.#img.naturalHeight;
 
-      // Calculate maxScale based on viewport size
-      const maxContainerWidth = window.innerWidth * 0.8;
-      const maxContainerHeight = window.innerHeight * 0.8;
+      // Calculate the longest dimension
+      const maxImageDimension = Math.max(this.originalWidth, this.originalHeight);
 
-      const maxScaleWidth = maxContainerWidth / this.originalWidth;
-      const maxScaleHeight = maxContainerHeight / this.originalHeight;
-      this.maxScale = Math.min(maxScaleWidth, maxScaleHeight);
+      // Calculate maxScale based on viewport size and longest dimension
+      const maxContainerSize = Math.min(window.innerWidth, window.innerHeight) * 0.75; // Changed from 0.8 to 0.75
+      this.maxScale = Math.min(maxContainerSize / maxImageDimension, 1);
 
       // Conditionally set containerScale based on resetZoomPan
       if (resetZoomPan) { // Only reset if resetZoomPan is true
@@ -484,8 +478,18 @@ class Lightbox {
 
     // Conditionally set container size based on resetZoomPan
     if (resetZoomPan) {
-      this.#link.style.width = `${this.originalWidth * this.containerScale}px`;
-      this.#link.style.height = `${this.originalHeight * this.containerScale}px`;
+      // Determine the longest dimension of the image
+      const maxImageDimension = Math.max(this.originalWidth, this.originalHeight);
+
+      // Calculate container size based on the longest dimension and containerScale
+      let containerSize = maxImageDimension * this.containerScale;
+
+      // Ensure the container does not exceed 75% of the viewport's width or height
+      const maxContainerSize = Math.min(window.innerWidth, window.innerHeight) * 0.75; // Changed from 0.8 to 0.75
+      containerSize = Math.min(containerSize, maxContainerSize);
+
+      this.#link.style.width = `${containerSize}px`;
+      this.#link.style.height = `${containerSize}px`;
     }
 
     // Use requestAnimationFrame to ensure styles are applied before calculating pan bounds
