@@ -43,17 +43,17 @@ class Lightbox {
     this.startY = 0;
     this.panX = 0;
     this.panY = 0;
-    //this.maxScale = 1; 
     this.containerScale = 1;
     this.imageScale = 1;
     this.mouseMovedDuringPan = false;
+    this.maxScale = 1; // Initialize maxScale
 
     // Bind methods and store them
     this.startPanHandler = this.#startPan.bind(this);
     this.panHandler = this.#pan.bind(this);
     this.endPanHandler = this.#endPan.bind(this);
     this.handleKeyDownHandler = this.#handleKeyDown.bind(this);
-    this.handleZoomHandler = this.#handleZoom.bind(this);
+    this.handleZoomHandler = debounce(this.#handleZoom.bind(this), 100);
     this.resetZoomPanHandler = this.#resetZoomPan.bind(this);
     this.#createElements();
     this.#addEventListeners();
@@ -69,48 +69,39 @@ class Lightbox {
     }
 
     // Determine the zoom direction
-    const zoomFactor = 1.1;
-
-    // Maximum container size (80% of window size)
-    const maxContainerWidth = window.innerWidth * 0.8;
-    const maxContainerHeight = window.innerHeight * 0.8;
-
-    // Minimum container size (original image size)
-    const minContainerWidth = this.originalWidth;
-    const minContainerHeight = this.originalHeight;
-
-    // Current container dimensions
-    let containerWidth = this.originalWidth * this.containerScale;
-    let containerHeight = this.originalHeight * this.containerScale;
+    const zoomFactor = 1.2;
 
     if (delta < 0) {
       // Zoom in
-      if (containerWidth < maxContainerWidth && containerHeight < maxContainerHeight) {
-        // Increase container size
-        this.containerScale *= zoomFactor;
+      if (this.containerScale < this.maxScale) {
+        // Scale container down to maxScale (if maxScale < 1)
+        this.containerScale = Math.min(this.containerScale * zoomFactor, this.maxScale);
       } else {
-        // Increase image scale
+        // Scale image up beyond original size
         this.imageScale *= zoomFactor;
       }
     } else if (delta > 0) {
       // Zoom out
       if (this.imageScale > 1) {
-        // Decrease image scale
+        // Scale image down towards original size
         this.imageScale /= zoomFactor;
-      } else if (this.containerScale > 1) {
-        // Decrease container size
-        this.containerScale /= zoomFactor;
+      } else if (this.containerScale > (this.maxScale < 1 ? this.maxScale : 1)) {
+        // Scale container up towards 1 (or higher if maxScale >1)
+        this.containerScale = Math.max(this.containerScale / zoomFactor, (this.maxScale < 1 ? this.maxScale : 1));
       }
     }
 
-    // Ensure scales are within bounds
-    this.containerScale = Math.max(this.containerScale, 1);
+    // Ensure imageScale is within bounds
     this.imageScale = Math.max(this.imageScale, 1);
 
-    containerWidth = this.originalWidth * this.containerScale;
-    containerHeight = this.originalHeight * this.containerScale;
+    // Recalculate containerWidth and containerHeight
+    let containerWidth = this.originalWidth * this.containerScale;
+    let containerHeight = this.originalHeight * this.containerScale;
 
     // Ensure container does not exceed max size
+    const maxContainerWidth = window.innerWidth * 0.8;
+    const maxContainerHeight = window.innerHeight * 0.8;
+
     containerWidth = Math.min(containerWidth, maxContainerWidth);
     containerHeight = Math.min(containerHeight, maxContainerHeight);
 
@@ -119,32 +110,25 @@ class Lightbox {
     this.#link.style.width = `${containerWidth}px`;
     this.#link.style.height = `${containerHeight}px`;
 
-    // Update pan bounds
+    // Update pan bounds after scaling
     this.#updatePanBounds();
 
-    this.#img.style.transition = 'transform 0.3s ease';
-
-    // Update image transform
+    // Update image transform and cursor
     this.#updateImageTransform();
     this.#updateCursor();
 
     // Reset pan offsets if panning is not possible
-    if (this.maxPanX <= 0 && this.maxPanY <= 0) {
+    if (this.maxPanX <= 1 && this.maxPanY <= 1) { // Using threshold
       this.panX = 0;
       this.panY = 0;
       this.isPanning = false;
     }
-
-    setTimeout(() => {
-      this.#link.style.transition = '';
-      this.#img.style.transition = '';
-    }, 300);
   }
 
   #startPan(e) {
     // Update pan bounds
     this.#updatePanBounds();
-    const canPan = this.maxPanX > 0 || this.maxPanY > 0;
+    const canPan = (this.containerScale === this.maxScale) && (this.imageScale > 1);
 
     if (canPan && e.button === 0) { // Left mouse button
       e.preventDefault();
@@ -172,6 +156,14 @@ class Lightbox {
   }
 
   #updatePanBounds() {
+    // Panning is only possible if containerScale is at maxScale and imageScale > 1
+    if (this.containerScale !== this.maxScale || this.imageScale <= 1) {
+      // Panning is not possible
+      this.maxPanX = 0;
+      this.maxPanY = 0;
+      return;
+    }
+
     const containerRect = this.#link.getBoundingClientRect();
 
     const scaledWidth = this.originalWidth * this.containerScale * this.imageScale;
@@ -180,8 +172,10 @@ class Lightbox {
     const maxPanX = Math.max((scaledWidth - containerRect.width) / 2, 0);
     const maxPanY = Math.max((scaledHeight - containerRect.height) / 2, 0);
 
-    this.maxPanX = maxPanX;
-    this.maxPanY = maxPanY;
+    // Introduce a small threshold to prevent negligible pan values
+    const threshold = 1; // pixels
+    this.maxPanX = maxPanX > threshold ? maxPanX : 0;
+    this.maxPanY = maxPanY > threshold ? maxPanY : 0;
   }
 
   #endPan(e) {
@@ -192,22 +186,24 @@ class Lightbox {
   }
 
   #resetZoomPan() {
-    this.containerScale = 1;
+    this.containerScale = (this.maxScale < 1) ? this.maxScale : 1;
     this.imageScale = 1;
     this.panX = 0;
     this.panY = 0;
     this.isPanning = false;
 
-    // Reset container size
-    this.#link.style.width = `${this.originalWidth}px`;
-    this.#link.style.height = `${this.originalHeight}px`;
+    // Reset container size based on initial scale
+    this.#link.style.width = `${this.originalWidth * this.containerScale}px`;
+    this.#link.style.height = `${this.originalHeight * this.containerScale}px`;
 
     this.#updateImageTransform();
     this.#updateCursor();
   }
 
   #updateImageTransform() {
-    if (this.imageScale <= 1) {
+    const totalScale = this.containerScale * this.imageScale;
+
+    if (totalScale <= 1) {
       // Reset pan and scale
       this.panX = 0;
       this.panY = 0;
@@ -217,14 +213,13 @@ class Lightbox {
       this.panX = Math.min(Math.max(this.panX, -this.maxPanX), this.maxPanX);
       this.panY = Math.min(Math.max(this.panY, -this.maxPanY), this.maxPanY);
 
-      // Apply transform
       this.#img.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.imageScale})`;
     }
   }
 
   #updateCursor() {
-    // Check if panning is possible
-    const canPan = this.maxPanX > 0 || this.maxPanY > 0;
+    const canPan = (this.containerScale === this.maxScale) && (this.imageScale > 1);
+    console.log(`maxPanX: ${this.maxPanX}, maxPanY: ${this.maxPanY}, canPan: ${canPan}`);
 
     if (canPan) {
       this.#img.style.cursor = this.isPanning ? 'grabbing' : 'grab';
@@ -286,7 +281,7 @@ class Lightbox {
       this.#update(1);
     });
 
-    // Add event listenersfor zoom and pan using stored handlers
+    // Add event listeners for zoom and pan using stored handlers
     // Handle click on the image to open in a new tab
     this.#img.addEventListener("click", (e) => {
       e.stopPropagation(); // Prevent the lightbox from closing
@@ -301,6 +296,32 @@ class Lightbox {
     document.addEventListener('keydown', this.handleKeyDownHandler);
     this.#img.addEventListener('wheel', this.handleZoomHandler);
     this.#img.addEventListener('dblclick', this.resetZoomPanHandler);
+
+    window.addEventListener('resize', () => {
+      if (this.isOpen()) {
+        // Recalculate maxScale based on new viewport size
+        const maxContainerWidth = window.innerWidth * 0.8;
+        const maxContainerHeight = window.innerHeight * 0.8;
+
+        const maxScaleWidth = maxContainerWidth / this.originalWidth;
+        const maxScaleHeight = maxContainerHeight / this.originalHeight;
+        this.maxScale = Math.min(maxScaleWidth, maxScaleHeight);
+
+        // Adjust containerScale based on new maxScale
+        if (this.maxScale < 1) {
+          this.containerScale = Math.min(this.containerScale, this.maxScale);
+        } else {
+          this.containerScale = Math.max(this.containerScale, 1);
+        }
+
+        this.#link.style.width = `${this.originalWidth * this.containerScale}px`;
+        this.#link.style.height = `${this.originalHeight * this.containerScale}px`;
+
+        this.#updatePanBounds();
+        this.#updateImageTransform();
+        this.#updateCursor();
+      }
+    });
 
     // Stop propagation when clicking on the image itself (to avoid closing the lightbox)
     this.#img.addEventListener("click", (e) => e.stopPropagation());
@@ -394,11 +415,25 @@ class Lightbox {
     this.#spinner.style.display = "block";
     try {
       await this.#loadImage(img);
-      //this.#link.href = img;
       this.#img.src = img;
 
       this.originalWidth = this.#img.naturalWidth;
       this.originalHeight = this.#img.naturalHeight;
+
+      // Calculate maxScale based on viewport size
+      const maxContainerWidth = window.innerWidth * 0.8;
+      const maxContainerHeight = window.innerHeight * 0.8;
+
+      const maxScaleWidth = maxContainerWidth / this.originalWidth;
+      const maxScaleHeight = maxContainerHeight / this.originalHeight;
+      this.maxScale = Math.min(maxScaleWidth, maxScaleHeight);
+
+      // Set initial containerScale based on maxScale
+      if (this.maxScale < 1) {
+        this.containerScale = this.maxScale; // Scale down to fit
+      } else {
+        this.containerScale = 1; // Start at original size
+      }
 
       this.#img.style.opacity = 1;
     } catch (err) {
@@ -408,20 +443,21 @@ class Lightbox {
       this.#spinner.style.display = "none";
     }
 
-    this.originalWidth = this.#img.naturalWidth;
-    this.originalHeight = this.#img.naturalHeight;
+    // Reset scaling and panning
+    this.imageScale = 1;
+    this.panX = 0;
+    this.panY = 0;
 
-      // Set initial container size
-      this.containerScale = 1;
-      this.imageScale = 1;
-      this.panX = 0;
-      this.panY = 0;
+    // Set container size based on the original image size and containerScale
+    this.#link.style.width = `${this.originalWidth * this.containerScale}px`;
+    this.#link.style.height = `${this.originalHeight * this.containerScale}px`;
 
-      this.#link.style.width = `${this.originalWidth}px`;
-      this.#link.style.height = `${this.originalHeight}px`;
-
+    // Use requestAnimationFrame to ensure styles are applied before calculating pan bounds
+    requestAnimationFrame(() => {
+      this.#updatePanBounds();
       this.#updateImageTransform();
       this.#updateCursor();
+    });
   }
 
   #updateArrowStyles() {
