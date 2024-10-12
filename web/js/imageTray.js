@@ -24,6 +24,10 @@ function debounce(func, wait) {
   };
 }
 
+// Define maximum and minimum scales - This is image zoom only, you can always zoom to 80% of your screen size.
+const MAX_IMAGE_SCALE = 5; // What if zoom but too much>?
+const MIN_IMAGE_SCALE = 1; // Original size.
+
 class Lightbox {
   #el;
   #img;
@@ -60,6 +64,10 @@ class Lightbox {
   }
 
   #handleZoom(e) {
+    const modZoom = 2.4;
+    const regularZoom = 1.2;
+
+
     e.preventDefault();
     let delta = e.deltaY;
 
@@ -68,31 +76,36 @@ class Lightbox {
       delta = e.wheelDelta ? -e.wheelDelta : 0;
     }
 
-    // Determine the zoom direction
-    const zoomFactor = 1.2;
+    // Determine if shift key is pressed
+    const isModifierPressed = e.shiftKey;
+
+    // Declare and set the zoom factor based on shift key
+    let zoomFactor;
+    if (isModifierPressed) {
+      zoomFactor = modZoom; // More aggressive zoom when shift is held
+    } else {
+      zoomFactor = regularZoom; // Standard zoom factor
+    }
 
     if (delta < 0) {
       // Zoom in
       if (this.containerScale < this.maxScale) {
-        // Scale container down to maxScale (if maxScale < 1)
+        // Scale container up to maxScale (if maxScale < 1)
         this.containerScale = Math.min(this.containerScale * zoomFactor, this.maxScale);
       } else {
         // Scale image up beyond original size
-        this.imageScale *= zoomFactor;
+        this.imageScale = Math.min(this.imageScale * zoomFactor, MAX_IMAGE_SCALE);
       }
     } else if (delta > 0) {
       // Zoom out
-      if (this.imageScale > 1) {
+      if (this.imageScale > MIN_IMAGE_SCALE) {
         // Scale image down towards original size
-        this.imageScale /= zoomFactor;
+        this.imageScale = Math.max(this.imageScale / zoomFactor, MIN_IMAGE_SCALE);
       } else if (this.containerScale > (this.maxScale < 1 ? this.maxScale : 1)) {
-        // Scale container up towards 1 (or higher if maxScale >1)
+        // Scale container down towards 1 (or higher if maxScale >1)
         this.containerScale = Math.max(this.containerScale / zoomFactor, (this.maxScale < 1 ? this.maxScale : 1));
       }
     }
-
-    // Ensure imageScale is within bounds
-    this.imageScale = Math.max(this.imageScale, 1);
 
     // Recalculate containerWidth and containerHeight
     let containerWidth = this.originalWidth * this.containerScale;
@@ -105,7 +118,7 @@ class Lightbox {
     containerWidth = Math.min(containerWidth, maxContainerWidth);
     containerHeight = Math.min(containerHeight, maxContainerHeight);
 
-    // Apply container size
+    // Apply container size with smooth transition
     this.#link.style.transition = 'width 0.3s ease, height 0.3s ease';
     this.#link.style.width = `${containerWidth}px`;
     this.#link.style.height = `${containerHeight}px`;
@@ -124,6 +137,7 @@ class Lightbox {
       this.isPanning = false;
     }
   }
+
 
   #startPan(e) {
     // Update pan bounds
@@ -395,7 +409,7 @@ class Lightbox {
     this.#images = images;
   }
 
-  async #update(shift) {
+  async #update(shift, resetZoomPan = true) { // Added resetZoomPan parameter
     let newIndex = this.#index + shift;
 
     // Implement wrapping behavior
@@ -405,10 +419,22 @@ class Lightbox {
       newIndex = 0; // Wrap to the first image
     }
 
+    // Check if we are updating the same image without needing to reset
+    const isSameImage = newIndex === this.#index;
+
     this.#index = newIndex;
 
     // Update arrow styles based on the current index
     this.#updateArrowStyles();
+
+    // If we're not resetting zoom/pan and the image hasn't changed, skip reloading
+    if (isSameImage && !resetZoomPan) {
+      // Only update pan bounds and cursor without reloading the image
+      this.#updatePanBounds();
+      this.#updateImageTransform();
+      this.#updateCursor();
+      return;
+    }
 
     const img = this.#images[this.#index];
     this.#img.style.opacity = 0;
@@ -428,11 +454,19 @@ class Lightbox {
       const maxScaleHeight = maxContainerHeight / this.originalHeight;
       this.maxScale = Math.min(maxScaleWidth, maxScaleHeight);
 
-      // Set initial containerScale based on maxScale
-      if (this.maxScale < 1) {
-        this.containerScale = this.maxScale; // Scale down to fit
-      } else {
-        this.containerScale = 1; // Start at original size
+      // Conditionally set containerScale based on resetZoomPan
+      if (resetZoomPan) { // Only reset if resetZoomPan is true
+        // Set initial containerScale based on maxScale
+        if (this.maxScale < 1) {
+          this.containerScale = this.maxScale; // Scale down to fit
+        } else {
+          this.containerScale = 1; // Start at original size
+        }
+
+        // Reset scaling and panning
+        this.imageScale = 1;
+        this.panX = 0;
+        this.panY = 0;
       }
 
       this.#img.style.opacity = 1;
@@ -443,14 +477,11 @@ class Lightbox {
       this.#spinner.style.display = "none";
     }
 
-    // Reset scaling and panning
-    this.imageScale = 1;
-    this.panX = 0;
-    this.panY = 0;
-
-    // Set container size based on the original image size and containerScale
-    this.#link.style.width = `${this.originalWidth * this.containerScale}px`;
-    this.#link.style.height = `${this.originalHeight * this.containerScale}px`;
+    // Conditionally set container size based on resetZoomPan
+    if (resetZoomPan) {
+      this.#link.style.width = `${this.originalWidth * this.containerScale}px`;
+      this.#link.style.height = `${this.originalHeight * this.containerScale}px`;
+    }
 
     // Use requestAnimationFrame to ensure styles are applied before calculating pan bounds
     requestAnimationFrame(() => {
@@ -516,7 +547,7 @@ class Lightbox {
     }
 
     this.#updateArrowStyles();
-    this.#update(0);
+    this.#update(0, false); // Prevent resetting zoom and pan
   }
 
   updateCurrentImage(newIndex) {
@@ -538,7 +569,7 @@ class Lightbox {
     }
 
     this.#updateArrowStyles();
-    this.#update(0); // Update without moving
+    this.#update(0, false); // Prevent resetting zoom and pan
   }
 }
 
@@ -1686,7 +1717,7 @@ const lightboxStyles = `
   background-color: rgba(0, 0, 0, 0.8);
   display: none;
   opacity: 0;
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 0.3s ease-in-out;
 
   z-index: 1000;
 }
@@ -1715,7 +1746,7 @@ const lightboxStyles = `
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transition: opacity 0.2s ease-in-out, transform 0.1s ease-out;
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-out,  transition: transform 0.3s ease;
   transform-origin: center center;
 }
 
