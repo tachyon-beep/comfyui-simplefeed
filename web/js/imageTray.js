@@ -53,12 +53,15 @@ class Lightbox {
     this.maxScale = 1; // Initialize maxScale
 
     // Bind methods and store them
-    this.startPanHandler = this.#startPan.bind(this);
-    this.panHandler = this.#pan.bind(this);
-    this.endPanHandler = this.#endPan.bind(this);
+    this.startPanHandler = this.#startPanWithPointerLock.bind(this);
+    this.panHandler = this.#panWithPointerLock.bind(this);
+    this.endPanHandler = this.#endPanWithPointerLock.bind(this);
     this.handleKeyDownHandler = this.#handleKeyDown.bind(this);
     this.handleZoomHandler = debounce(this.#handleZoom.bind(this), 100);
     this.resetZoomPanHandler = this.#resetZoomPan.bind(this);
+    this.pointerLockChangeHandler = this.#onPointerLockChange.bind(this);
+    this.pointerLockErrorHandler = this.#onPointerLockError.bind(this);
+
     this.#createElements();
     this.#addEventListeners();
   }
@@ -66,7 +69,6 @@ class Lightbox {
   #handleZoom(e) {
     const modZoom = 2.4;
     const regularZoom = 1.2;
-
 
     e.preventDefault();
     let delta = e.deltaY;
@@ -80,12 +82,7 @@ class Lightbox {
     const isModifierPressed = e.shiftKey;
 
     // Declare and set the zoom factor based on shift key
-    let zoomFactor;
-    if (isModifierPressed) {
-      zoomFactor = modZoom; // More aggressive zoom when shift is held
-    } else {
-      zoomFactor = regularZoom; // Standard zoom factor
-    }
+    let zoomFactor = isModifierPressed ? modZoom : regularZoom;
 
     if (delta < 0) {
       // Zoom in
@@ -138,26 +135,21 @@ class Lightbox {
     }
   }
 
-
-  #startPan(e) {
-    // Update pan bounds
+  #startPanWithPointerLock(e) {
     this.#updatePanBounds();
     const canPan = (this.containerScale === this.maxScale) && (this.imageScale > 1);
 
     if (canPan && e.button === 0) { // Left mouse button
       e.preventDefault();
-      this.isPanning = true;
-      this.mouseMovedDuringPan = false;      
-      this.startX = e.clientX - this.panX;
-      this.startY = e.clientY - this.panY;
-      this.#img.style.cursor = 'grabbing';
+      this.#img.requestPointerLock();
     }
   }
 
-  #pan(e) {
+  #panWithPointerLock(e) {
     if (this.isPanning) {
-      this.panX = e.clientX - this.startX;
-      this.panY = e.clientY - this.startY;
+      // e.movementX and e.movementY provide the relative movement
+      this.panX += e.movementX;
+      this.panY += e.movementY;
 
       this.mouseMovedDuringPan = true;
 
@@ -166,6 +158,12 @@ class Lightbox {
       this.panY = Math.min(Math.max(this.panY, -this.maxPanY), this.maxPanY);
      
       this.#updateImageTransform();
+    }
+  }
+
+  #endPanWithPointerLock() {
+    if (this.isPanning) {
+      document.exitPointerLock();
     }
   }
 
@@ -190,13 +188,6 @@ class Lightbox {
     const threshold = 1; // pixels
     this.maxPanX = maxPanX > threshold ? maxPanX : 0;
     this.maxPanY = maxPanY > threshold ? maxPanY : 0;
-  }
-
-  #endPan(e) {
-    if (e.button === 0) { // Left mouse button
-      this.isPanning = false;
-      this.#updateCursor();
-    }
   }
 
   #resetZoomPan() {
@@ -263,7 +254,6 @@ class Lightbox {
     document.body.appendChild(this.#el);
   }
 
-
   #createElement(tag, className, parent, attrs = {}) {
     const el = document.createElement(tag);
     el.className = className;
@@ -295,21 +285,15 @@ class Lightbox {
       this.#update(1);
     });
 
-    // Add event listeners for zoom and pan using stored handlers
-    // Handle click on the image to open in a new tab
-    this.#img.addEventListener("click", (e) => {
-      e.stopPropagation(); // Prevent the lightbox from closing
-      //if (!this.isPanning && !this.mouseMovedDuringPan) {
-      //  window.open(this.#img.src, "_blank");
-      //}
-    });
-
     this.#img.addEventListener('mousedown', this.startPanHandler);
-    document.addEventListener('mousemove', this.panHandler);
     document.addEventListener('mouseup', this.endPanHandler);
     document.addEventListener('keydown', this.handleKeyDownHandler);
     this.#img.addEventListener('wheel', this.handleZoomHandler);
     this.#img.addEventListener('dblclick', this.resetZoomPanHandler);
+
+    // Add Pointer Lock specific event listeners
+    document.addEventListener('pointerlockchange', this.pointerLockChangeHandler);
+    document.addEventListener('pointerlockerror', this.pointerLockErrorHandler);
 
     window.addEventListener('resize', () => {
       if (this.isOpen()) {
@@ -346,6 +330,27 @@ class Lightbox {
         e.preventDefault();
       }
     });
+  }
+
+  #onPointerLockChange() {
+    if (document.pointerLockElement === this.#img) {
+      this.isPanning = true;
+      this.mouseMovedDuringPan = false;
+      this.#img.style.cursor = 'grabbing';
+
+      // Add event listener for mouse movement during pointer lock
+      document.addEventListener('mousemove', this.panHandler);
+    } else {
+      this.isPanning = false;
+      this.#img.style.cursor = this.mouseMovedDuringPan ? 'grabbing' : 'grab';
+
+      // Remove the mousemove listener
+      document.removeEventListener('mousemove', this.panHandler);
+    }
+  }
+
+  #onPointerLockError() {
+    console.error('Pointer Lock failed.');
   }
 
   forceReflow(element) {
@@ -409,7 +414,7 @@ class Lightbox {
     this.#images = images;
   }
 
-  async #update(shift, resetZoomPan = true) { // Added resetZoomPan parameter
+  async #update(shift, resetZoomPan = true) {
     let newIndex = this.#index + shift;
 
     // Implement wrapping behavior
@@ -1714,7 +1719,7 @@ const lightboxStyles = `
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: rgba(0, 0, 0, 0.9);
   display: none;
   opacity: 0;
   transition: opacity 0.3s ease-in-out;
@@ -1732,24 +1737,26 @@ const lightboxStyles = `
   max-height: 90%;
   border: 2px solid yellow;
   box-sizing: border-box;   
+  background-color: rgba(0, 0, 0, 0.99); /* Added background color */
 }
+
 
 .lightbox__link {
   overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
-  /* Remove max-width and max-height if present */
+  background-color: rgba(0, 0, 0, 0.99); /* Added background color */
 }
+
 
 .lightbox__img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transition: opacity 0.3s ease-in-out, transform 0.3s ease-out,  transition: transform 0.3s ease;
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-out;
   transform-origin: center center;
 }
-
 
 /* Base styles for arrow buttons */
 .lightbox__prev, .lightbox__next {
