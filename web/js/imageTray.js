@@ -89,6 +89,7 @@ class Lightbox {
   constructor(getImagesFunction) {
     this.getImages = getImagesFunction;
 
+    // Event handlers for various elements
     this.handleElClick = (e) => {
       if (e.target === this.#el) this.close();
     };
@@ -111,6 +112,8 @@ class Lightbox {
     this.resetZoomPanHandler = this.#resetZoomPan.bind(this);
     this.pointerLockChangeHandler = this.#onPointerLockChange.bind(this);
     this.pointerLockErrorHandler = this.#onPointerLockError.bind(this);
+
+    // Create DOM elements and add event listeners
     this.#createElements();
     this.#addEventListeners();
   }
@@ -148,7 +151,7 @@ class Lightbox {
     // Determine if shift key is pressed
     const isModifierPressed = e.shiftKey;
 
-    // Declare and set the zoom factor based on shift key
+    // Set the zoom factor based on whether the shift key is pressed
     let zoomFactor = isModifierPressed ? SHIFT_ZOOM_MULTIPLIER : BASE_ZOOM_MULTIPLIER;
 
     if (delta < 0) {
@@ -192,14 +195,7 @@ class Lightbox {
       // Set speed multiplier based on Shift key state
       const speedMultiplier = isShiftPressed ? SHIFT_PAN_SPEED_MULTIPLIER : BASE_PAN_SPEED_MULTIPLIER;
 
-      // Update cursor based on Shift key state (optional)
-      if (isShiftPressed) {
-        this.#img.classList.add('shift-panning');
-      } else {
-        this.#img.classList.remove('shift-panning');
-      }
-
-      // Apply pan speed multiplier
+      // Apply pan speed multiplier to movement
       const deltaX = e.movementX * speedMultiplier;
       const deltaY = e.movementY * speedMultiplier;
 
@@ -231,6 +227,7 @@ class Lightbox {
       return;
     }
 
+    // Get the dimensions of the container and the scaled image
     const containerRect = this.#link.getBoundingClientRect();
     const containerWidth = containerRect.width;
     const containerHeight = containerRect.height;
@@ -238,23 +235,26 @@ class Lightbox {
     const scaledImageWidth = this.originalWidth * this.imageScale;
     const scaledImageHeight = this.originalHeight * this.imageScale;
 
+    // Calculate the maximum allowable panning distances
     this.maxPanX = Math.max((scaledImageWidth - containerWidth) / 2, 0);
     this.maxPanY = Math.max((scaledImageHeight - containerHeight) / 2, 0);
   }
 
   #resetZoomPan() {
+    // Reset zoom level and pan offsets to default values
     this.imageScale = this.#minScale;
     this.panX = 0;
     this.panY = 0;
     this.isPanning = false;
 
+    // Update the transform and cursor
     this.#updateImageTransform();
     this.#updateCursor();
   }
 
   #updateImageTransform() {
     if (this.imageScale <= this.#minScale) {
-      // Reset pan and scale
+      // Reset pan and scale if at minimum scale
       this.panX = 0;
       this.panY = 0;
       this.#img.style.transform = `scale(${this.#minScale})`;
@@ -263,11 +263,13 @@ class Lightbox {
       this.panX = Math.min(Math.max(this.panX, -this.maxPanX), this.maxPanX);
       this.panY = Math.min(Math.max(this.panY, -this.maxPanY), this.maxPanY);
 
+      // Apply translation and scaling to the image
       this.#img.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.imageScale})`;
     }
   }
 
   #updateCursor() {
+    // Update cursor style depending on whether panning is possible
     const canPan = (this.imageScale > this.#minScale);
     if (canPan) {
       this.#img.style.cursor = this.isPanning ? 'grabbing' : 'grab';
@@ -277,6 +279,7 @@ class Lightbox {
   }
 
   #createElements() {
+    // Create the lightbox container element
     this.#el = this.#createElement("div", "lightbox");
     this.#closeBtn = this.#createElement("div", "lightbox__close", this.#el);
 
@@ -289,7 +292,7 @@ class Lightbox {
     this.#next = this.#createElement("div", "lightbox__next", this.#el);
     this.#createElement("div", "arrow-inner", this.#next);
 
-    // Replace anchor with div
+    // Create the container for the image and spinner
     this.#link = this.#createElement("div", "lightbox__link", main);
 
     this.#spinner = this.#createElement("div", "lightbox__spinner", this.#link);
@@ -298,6 +301,7 @@ class Lightbox {
   }
 
   #createElement(tag, className, parent, attrs = {}) {
+    // Helper function to create and configure a DOM element
     const el = document.createElement(tag);
     el.className = className;
     if (parent) parent.appendChild(el);
@@ -308,6 +312,7 @@ class Lightbox {
   }
 
   #addEventListeners() {
+    // Add event listeners for various elements in the lightbox
     this.#el.addEventListener("click", this.handleElClick);
     this.#closeBtn.addEventListener("click", this.handleCloseBtnClick);
     this.#prev.addEventListener("click", this.handlePrevClick);
@@ -323,6 +328,7 @@ class Lightbox {
     document.addEventListener('pointerlockchange', this.pointerLockChangeHandler);
     document.addEventListener('pointerlockerror', this.pointerLockErrorHandler);
 
+    // Handle resizing the window
     window.addEventListener('resize', () => {
       if (this.isOpen()) {
         // Keep maxScale as a fixed constant
@@ -347,6 +353,7 @@ class Lightbox {
   }
 
   #onPointerLockChange() {
+    // Handle pointer lock changes (used for panning)
     if (document.pointerLockElement === this.#img) {
       this.isPanning = true;
       this.mouseMovedDuringPan = false;
@@ -373,6 +380,7 @@ class Lightbox {
   }
 
   #triggerArrowClickEffect(arrowElement) {
+    // Trigger a visual effect on arrow click
     const innerArrow = arrowElement.querySelector(".arrow-inner");
 
     if (innerArrow) {
@@ -392,6 +400,7 @@ class Lightbox {
   }
 
   #handleKeyDown(event) {
+    // Handle key presses for navigation and closing
     if (this.#el.style.display === "none") return;
     switch (event.key) {
       case "ArrowLeft":
@@ -409,6 +418,7 @@ class Lightbox {
   }
 
   show(images, index = 0) {
+    // Show the lightbox with the specified images and starting index
     this.#images = images;
     this.#index = index;
     this.#updateArrowStyles();
@@ -418,6 +428,7 @@ class Lightbox {
   }
 
   close() {
+    // Close the lightbox with a fade-out effect
     this.#el.style.opacity = 0;
     setTimeout(() => {
       this.#el.style.display = "none";
@@ -425,6 +436,7 @@ class Lightbox {
   }
 
   initializeImages(images) {
+    // Initialize the image list
     this.#images = images;
   }
 
@@ -437,7 +449,7 @@ class Lightbox {
 
     let newIndex = this.#index + shift;
 
-    // Implement wrapping behavior
+    // Implement wrapping behavior for navigation
     if (newIndex < 0) {
       newIndex = this.#images.length - 1; // Wrap to the last image
     } else if (newIndex >= this.#images.length) {
@@ -522,13 +534,6 @@ class Lightbox {
     });
   }
 
-  /**
-   * Public method to refresh the arrow states.
-   */
-  refreshArrows() {
-    this.#updateArrowStyles();
-  }
-
   #updateArrowStyles() {
     const totalImages = this.#images.length;
     const isAtFirstImage = this.#index === 0;
@@ -545,13 +550,14 @@ class Lightbox {
       this.#prev.classList.remove("disabled");
       this.#next.classList.remove("disabled");
 
-      // Handle wrap classes
+      // Handle wrap classes for the arrows
       this.#prev.classList.toggle("lightbox__prev--wrap", isAtFirstImage);
       this.#next.classList.toggle("lightbox__next--wrap", isAtLastImage);
     }
   }
 
   #loadImage(url) {
+    // Load an image and return a promise that resolves on success
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = resolve;
@@ -561,18 +567,22 @@ class Lightbox {
   }
 
   isOpen() {
+    // Check if the lightbox is currently open
     return this.#el.style.display === "flex";
   }
 
   getCurrentIndex() {
+    // Get the current image index
     return this.#index;
   }
 
   handleImageListChange(newImageArray) {
+    // Update the image list without resetting zoom and pan
     this.updateImageList(newImageArray, false);
   }
 
   updateImageList(newImages, resetZoomPan = true) {
+    // Update the image list and optionally reset zoom/pan
     const currentImage = this.#images[this.#index];
     this.#images = newImages;
 
@@ -588,6 +598,7 @@ class Lightbox {
   }
 
   updateCurrentImage(newIndex) {
+    // Update the currently displayed image to the specified index
     if (newIndex >= 0 && newIndex < this.#images.length) {
       this.#index = newIndex;
       this.#update(0); // Update without moving
