@@ -689,33 +689,22 @@ class ImageFeed {
     this.waitForSideToolbar();
     this.setupSettings();
 
-    // Initialize visibility
     this.changeFeedVisibility(this.visible);
   }
 
   destroy() {
-    // Remove API event listeners
-    api.removeEventListener("execution_start", this.onExecutionStart.bind(this));
-    api.removeEventListener("executed", this.onExecuted.bind(this));
+    api.removeEventListener("execution_start", this.onExecutionStart);
+    api.removeEventListener("executed", this.onExecuted);
+    window.removeEventListener("resize", this.adjustImageTrayDebounced);
 
-    // Remove window resize listener
-    window.removeEventListener(
-      "resize",
-      debounce(() => this.adjustImageTray(), 200)
-    );
-
-    // Disconnect MutationObserver
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;
     }
 
-    // Destroy Lightbox
     if (this.lightbox) {
       this.lightbox.destroy();
     }
-
-    // Additional cleanup if necessary
   }
 
   createMainElements() {
@@ -745,16 +734,12 @@ class ImageFeed {
 
   setupEventListeners() {
     api.addEventListener("execution_start", this.onExecutionStart.bind(this));
-    api.addEventListener("executed", (event) => {
-      this.onExecuted(event);
-    });
-    window.addEventListener(
-      "resize",
-      debounce(() => this.adjustImageTray(), 200)
-    );
+    api.addEventListener("executed", this.onExecuted.bind(this));
+    this.adjustImageTrayDebounced = debounce(() => this.adjustImageTray(), 200);
+    window.addEventListener("resize", this.adjustImageTrayDebounced);
   }
+
   forceReflow(element) {
-    // Reading a property that requires layout will force a reflow
     return element.offsetHeight;
   }
 
@@ -767,10 +752,7 @@ class ImageFeed {
 
   onExecutionStart({ detail }) {
     const filterEnabled = storage.getJSONVal("FilterEnabled", false);
-    if (
-      filterEnabled &&
-      (!this.selectedNodeIds || this.selectedNodeIds.length === 0)
-    ) {
+    if (filterEnabled && (!this.selectedNodeIds || this.selectedNodeIds.length === 0)) {
       storage.setJSONVal("FilterEnabled", false);
     }
   }
@@ -780,13 +762,10 @@ class ImageFeed {
       return;
     }
     this.handleExecuted(detail);
-    //this.updateLightboxIfOpen();
   }
 
   updateLightboxIfOpen() {
-    // Force a reflow to ensure DOM is up-to-date
     this.forceReflow(this.imageFeed);
-
     const currentImages = this.getAllImages();
     this.lightbox.updateImageList(currentImages);
     if (this.lightbox.isOpen()) {
@@ -801,7 +780,7 @@ class ImageFeed {
     const filterEnabled = storage.getJSONVal("FilterEnabled", false);
     const newBatchIdentifier = detail.prompt_id;
 
-    if (detail.node?.includes?.(":")) {
+    if (detail.node?.includes(":")) {
       const n = app.graph.getNodeById(detail.node.split(":")[0]);
       if (n?.getInnerNodes) return;
     }
@@ -813,13 +792,8 @@ class ImageFeed {
     }
 
     this.addImagesToBatch(detail, filterEnabled, newestToOldest);
-
     this.checkAndRemoveExtraImageBatches();
-
-    // Trigger a DOM update
     this.forceReflow(this.imageFeed);
-    // Update lightbox immediately after DOM changes
-    //this.updateLightboxIfOpen();
   }
 
   createNewBatch(newestToOldest, newBatchIdentifier) {
@@ -867,39 +841,27 @@ class ImageFeed {
 
   async addImageToBatch(src, batchContainer, newestToOldest) {
     try {
-      const baseUrl = `./view?filename=${encodeURIComponent(
-        src.filename
-      )}&type=${src.type}&subfolder=${encodeURIComponent(src.subfolder)}`;
+      const baseUrl = `./view?filename=${encodeURIComponent(src.filename)}&type=${src.type}&subfolder=${encodeURIComponent(src.subfolder)}`;
       const timestampedUrl = `${baseUrl}&t=${+new Date()}`;
       const img = await this.loadImage(timestampedUrl);
-      img.dataset.baseUrl = baseUrl; // Store the non-timestamped URL
-      const imageElement = this.createImageElement(
-        img,
-        timestampedUrl,
-        baseUrl
-      );
+      img.dataset.baseUrl = baseUrl;
+      const imageElement = this.createImageElement(img, timestampedUrl, baseUrl);
       const bars = batchContainer.querySelectorAll(".image-feed-vertical-bar");
 
       if (bars.length === 2) {
-        // This is the first batch with two bars
         bars[1].before(imageElement);
       } else if (newestToOldest) {
-        // For subsequent batches, newest first
         batchContainer.firstChild.after(imageElement);
       } else {
-        // For subsequent batches, oldest first
         batchContainer.appendChild(imageElement);
       }
 
-      // Force a reflow
       this.forceReflow(batchContainer);
-
-      // Update lightbox immediately after adding new image
       this.updateLightboxIfOpen();
     } catch (error) {
       console.error("Error adding image to batch", error);
       const placeholderImg = createElement("img", {
-        src: "https://placehold.co/512", // Using a public placeholder service
+        src: "https://placehold.co/512",
         alt: "Image failed to load",
       });
       batchContainer.appendChild(placeholderImg);
@@ -917,18 +879,12 @@ class ImageFeed {
     e.preventDefault();
     const state = this.getCurrentState();
     const absoluteBaseUrl = new URL(baseUrl, window.location.origin).href;
-    const imageIndex = state.images.findIndex((img) =>
-      img.startsWith(absoluteBaseUrl)
-    );
+    const imageIndex = state.images.findIndex((img) => img.startsWith(absoluteBaseUrl));
     if (imageIndex > -1) {
       this.lightbox.show(state.images, imageIndex);
     } else {
-      console.error(
-        "Clicked image not found in the list. Available images:",
-        state.images
-      );
+      console.error("Clicked image not found in the list. Available images:", state.images);
       console.error("Clicked image URL:", absoluteBaseUrl);
-      // Fallback: If the exact URL is not found, open the lightbox with the first image
       if (state.images.length > 0) {
         this.lightbox.show(state.images, 0);
       }
@@ -939,32 +895,27 @@ class ImageFeed {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
-      img.onerror = reject;
+      img.onerror = () => reject(new Error(`Failed to load image at ${src}`));
       img.src = src;
     });
   }
 
   getAllImages() {
     const images = document.querySelectorAll(".tb-image-feed img");
-    const imageUrls = Array.from(images).map((img) => {
+    return Array.from(images).map((img) => {
       const url = new URL(img.src, window.location.origin);
-      url.searchParams.delete("t"); // Remove the timestamp parameter
+      url.searchParams.delete("t");
       return url.href;
     });
-    return imageUrls;
   }
 
   checkAndRemoveExtraImageBatches() {
     const maxImageBatches = storage.getVal("MaxFeedLength", 25);
-    const batches = Array.from(
-      this.imageList.querySelectorAll(".image-batch-container")
-    );
+    const batches = Array.from(this.imageList.querySelectorAll(".image-batch-container"));
 
     if (batches.length <= maxImageBatches) return;
 
-    batches.slice(maxImageBatches).forEach((batch) => {
-      batch.remove();
-    });
+    batches.slice(maxImageBatches).forEach((batch) => batch.remove());
   }
 
   clearImageFeed() {
@@ -986,28 +937,21 @@ class ImageFeed {
       return;
     }
 
-    this.imageFeed.classList.remove(
-      "tb-image-feed--top",
-      "tb-image-feed--bottom"
-    );
-    this.buttonPanel.classList.remove(
-      "tb-image-feed-btn-group--top",
-      "tb-image-feed-btn-group--bottom"
-    );
+    this.imageFeed.classList.remove("tb-image-feed--top", "tb-image-feed--bottom");
+    this.buttonPanel.classList.remove("tb-image-feed-btn-group--top", "tb-image-feed-btn-group--bottom");
 
     if (feedLocation === "top") {
       this.imageFeed.classList.add("tb-image-feed--top");
       this.buttonPanel.classList.add("tb-image-feed-btn-group--top");
-      this.buttonPanel.style.top = "10px"; // Set a default top position
-      this.buttonPanel.style.bottom = "auto"; // Clear bottom positioning
+      this.buttonPanel.style.top = "10px";
+      this.buttonPanel.style.bottom = "auto";
     } else {
       this.imageFeed.classList.add("tb-image-feed--bottom");
       this.buttonPanel.classList.add("tb-image-feed-btn-group--bottom");
-      this.buttonPanel.style.bottom = "10px"; // Set a default bottom position
-      this.buttonPanel.style.top = "auto"; // Clear top positioning
+      this.buttonPanel.style.bottom = "10px";
+      this.buttonPanel.style.top = "auto";
     }
 
-    // Adjust the tray and button positions
     this.adjustImageTray();
   }
 
@@ -1029,12 +973,8 @@ class ImageFeed {
   }
 
   getSidebarInfo() {
-    const leftSideBar = document.querySelector(
-      ".comfyui-body-left .side-tool-bar-container"
-    );
-    const rightSideBar = document.querySelector(
-      ".comfyui-body-right .side-tool-bar-container"
-    );
+    const leftSideBar = document.querySelector(".comfyui-body-left .side-tool-bar-container");
+    const rightSideBar = document.querySelector(".comfyui-body-right .side-tool-bar-container");
     const sideBar = leftSideBar || rightSideBar;
     const sideBarWidth = sideBar?.offsetWidth || 0;
 
@@ -1064,15 +1004,11 @@ class ImageFeed {
       this.imageFeed.style.right = "0";
     }
 
-    // Fixed offset - This is a temporary hack until the UI devs stop changing things.
     this.imageFeed.style.width = `calc(100% - ${sideBarWidth + this.fixedOffset}px)`;
   }
 
   updateFeedDimensions() {
-    const feedHeight =
-      parseInt(
-        getComputedStyle(this.imageFeed).getPropertyValue("--tb-feed-height")
-      ) || 300;
+    const feedHeight = parseInt(getComputedStyle(this.imageFeed).getPropertyValue("--tb-feed-height")) || 300;
     this.imageFeed.style.height = `${feedHeight}px`;
   }
 
@@ -1087,17 +1023,11 @@ class ImageFeed {
 
   setFeedPosition(feedLocation, isMenuVisible, comfyuiMenu) {
     if (feedLocation === "top") {
-      const imageFeedTop = this.calculateTopPosition(
-        isMenuVisible,
-        comfyuiMenu
-      );
+      const imageFeedTop = this.calculateTopPosition(isMenuVisible, comfyuiMenu);
       this.imageFeed.style.top = `${imageFeedTop}px`;
       this.imageFeed.style.bottom = "auto";
     } else {
-      const imageFeedBottom = this.calculateBottomPosition(
-        isMenuVisible,
-        comfyuiMenu
-      );
+      const imageFeedBottom = this.calculateBottomPosition(isMenuVisible, comfyuiMenu);
       this.imageFeed.style.bottom = `${imageFeedBottom}px`;
       this.imageFeed.style.top = "auto";
     }
@@ -1114,9 +1044,7 @@ class ImageFeed {
   calculateBottomPosition(isMenuVisible, comfyuiMenu) {
     if (isMenuVisible) {
       const menuRect = comfyuiMenu.getBoundingClientRect();
-      return Math.abs(window.innerHeight - menuRect.bottom) <= 1
-        ? menuRect.height
-        : 0;
+      return Math.abs(window.innerHeight - menuRect.bottom) <= 1 ? menuRect.height : 0;
     }
     return 0;
   }
@@ -1153,22 +1081,18 @@ class ImageFeed {
 
     const imageFeedRect = this.imageFeed.getBoundingClientRect();
 
-    // Always position at the top-right corner of the image tray
     buttonPanel.style.top = `${imageFeedRect.top + 10}px`;
     buttonPanel.style.right = `${window.innerWidth - imageFeedRect.right + 10}px`;
 
-    // Clear other positioning
     buttonPanel.style.bottom = "auto";
     buttonPanel.style.left = "auto";
   }
 
   waitForSideToolbar() {
-    const MAX_OBSERVATION_TIME = 5000; //Taking longer than five seconds to render the UI? Believe it or not, jail.
+    const MAX_OBSERVATION_TIME = 5000;
     let timeoutId;
     const observer = new MutationObserver((mutationsList, observer) => {
-      const sideToolBar = document.querySelector(
-        ".comfyui-body-left .side-tool-bar-container"
-      );
+      const sideToolBar = document.querySelector(".comfyui-body-left .side-tool-bar-container");
       if (sideToolBar) {
         this.adjustImageTray();
         observer.disconnect();
@@ -1180,10 +1104,7 @@ class ImageFeed {
 
     timeoutId = setTimeout(() => {
       observer.disconnect();
-      console.error(
-        "Sidebar not found within the maximum observation time",
-        new Error("Timeout")
-      );
+      console.error("Sidebar not found within the maximum observation time", new Error("Timeout"));
     }, MAX_OBSERVATION_TIME);
   }
 
@@ -1207,7 +1128,7 @@ class ImageFeed {
   }
 
   loadOverlay() {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       let overlay = document.getElementById("modalOverlay");
 
       if (!overlay) {
@@ -1268,10 +1189,7 @@ class ImageFeed {
 
     const sortToggleButton = createElement("button", {
       className: "tb-image-feed-btn",
-      textContent:
-        storage.getJSONVal("SortOrder", "ID") === "ID"
-          ? "Sort by Name"
-          : "Sort by ID",
+      textContent: storage.getJSONVal("SortOrder", "ID") === "ID" ? "Sort by Name" : "Sort by ID",
       onclick: () => this.toggleSortOrder(sortToggleButton),
       disabled: !filterEnabled,
     });
@@ -1284,9 +1202,7 @@ class ImageFeed {
   }
 
   updateCheckboxStates(enabled) {
-    const checkboxes = document.querySelectorAll(
-      '.node-list-item input[type="checkbox"], #custom-node-checkbox'
-    );
+    const checkboxes = document.querySelectorAll('.node-list-item input[type="checkbox"], #custom-node-checkbox');
     checkboxes.forEach((checkbox) => {
       checkbox.disabled = !enabled;
     });
@@ -1298,20 +1214,15 @@ class ImageFeed {
 
     storage.setJSONVal("FilterEnabled", newFilterState);
 
-    filterToggleButton.textContent = newFilterState
-      ? "Disable Filter"
-      : "Enable Filter";
+    filterToggleButton.textContent = newFilterState ? "Disable Filter" : "Enable Filter";
     sortToggleButton.disabled = !newFilterState;
 
-    // Clear selected nodes when disabling filter
     if (!newFilterState) {
       this.selectedNodeIds = [];
       storage.setJSONVal("NodeFilter", this.selectedNodeIds);
     }
 
-    // Update checkbox states
     this.updateCheckboxStates(newFilterState);
-
     await this.redrawImageNodeList();
   }
 
@@ -1320,18 +1231,13 @@ class ImageFeed {
     const newSortOrder = currentSortOrder === "ID" ? "Name" : "ID";
 
     storage.setJSONVal("SortOrder", newSortOrder);
-
-    sortToggleButton.textContent =
-      newSortOrder === "ID" ? "Sort by Name" : "Sort by ID";
-
+    sortToggleButton.textContent = newSortOrder === "ID" ? "Sort by Name" : "Sort by ID";
     await this.redrawImageNodeList();
   }
 
   updateImageNodes() {
     const nodes = Object.values(app.graph._nodes);
-    this.imageNodes = nodes.filter((node) =>
-      ELIGIBLE_NODES.includes(node.type)
-    );
+    this.imageNodes = nodes.filter((node) => ELIGIBLE_NODES.includes(node.type));
   }
 
   sortImageNodes() {
@@ -1377,9 +1283,7 @@ class ImageFeed {
 
       const label = createElement("label", {
         htmlFor: checkbox.id,
-        textContent: node.title
-          ? `${node.title} (ID: ${node.id})`
-          : `Node ID: ${node.id}`,
+        textContent: node.title ? `${node.title} (ID: ${node.id})` : `Node ID: ${node.id}`,
       });
 
       listItem.appendChild(checkbox);
@@ -1416,16 +1320,13 @@ class ImageFeed {
 
       nodeList.appendChild(customNodeItem);
     } else {
-      const customCheckbox = customNodeItem.querySelector(
-        'input[type="checkbox"]'
-      );
+      const customCheckbox = customNodeItem.querySelector('input[type="checkbox"]');
       if (customCheckbox) {
         customCheckbox.checked = this.selectedNodeIds.includes(-1);
         customCheckbox.disabled = !filterEnabled;
       }
     }
 
-    // Update all checkbox states
     this.updateCheckboxStates(filterEnabled);
   }
 
@@ -1502,8 +1403,7 @@ class ImageFeed {
         storage.setVal("MaxFeedLength", newValue);
         this.checkAndRemoveExtraImageBatches();
       },
-      tooltip:
-        "Maximum number of image batches to retain before the oldest start dropping from image feed.",
+      tooltip: "Maximum number of image batches to retain before the oldest start dropping from image feed.",
       attrs: {
         min: "25",
         max: "200",
