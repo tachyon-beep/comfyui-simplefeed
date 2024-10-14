@@ -67,9 +67,6 @@ const SHIFT_PAN_SPEED_MULTIPLIER = 3; // Double speed when Shift is held
 const BASE_ZOOM_MULTIPLIER = 1.2;
 const SHIFT_ZOOM_MULTIPLIER = 3.6;
 
-/**
- * Class representing a Lightbox for displaying images with zoom and pan functionalities.
- */
 class Lightbox {
   #el;
   #img;
@@ -81,7 +78,6 @@ class Lightbox {
   #images = [];
   #index = 0;
 
-  #imageScale = 1;
   #minScale = 1; // Dynamic minimum scale based on fit
   #maxScale = 10; // Fixed maximum scale
 
@@ -105,7 +101,6 @@ class Lightbox {
       this.#triggerArrowClickEffect(this.#next);
       this.#update(1);
     };
-
 
     // Bind methods and store them
     this.startPanHandler = this.#startPanWithPointerLock.bind(this);
@@ -137,6 +132,10 @@ class Lightbox {
     document.body.removeChild(this.#el);
   }
 
+  registerForUpdates(updateCallback) {
+    this.updateCallback = updateCallback;
+  }
+
   #handleZoom(e) {
     e.preventDefault();
     let delta = e.deltaY;
@@ -159,8 +158,6 @@ class Lightbox {
       // Zoom out
       this.imageScale = Math.max(this.imageScale / zoomFactor, this.#minScale);
     }
-
-    console.log(`Zoom handled: imageScale=${this.imageScale}, minScale=${this.#minScale}, maxScale=${this.#maxScale}`);
 
     // Update pan bounds after scaling
     this.#updatePanBounds();
@@ -243,8 +240,6 @@ class Lightbox {
 
     this.maxPanX = Math.max((scaledImageWidth - containerWidth) / 2, 0);
     this.maxPanY = Math.max((scaledImageHeight - containerHeight) / 2, 0);
-
-    console.log(`Pan bounds updated: maxPanX=${this.maxPanX}, maxPanY=${this.maxPanY}`);
   }
 
   #resetZoomPan() {
@@ -255,8 +250,6 @@ class Lightbox {
 
     this.#updateImageTransform();
     this.#updateCursor();
-
-    console.log(`Zoom and pan reset: imageScale=${this.imageScale}, panX=${this.panX}, panY=${this.panY}`);
   }
 
   #updateImageTransform() {
@@ -339,8 +332,6 @@ class Lightbox {
         this.#updatePanBounds();
         this.#updateImageTransform();
         this.#updateCursor();
-
-        console.log(`Window resized: maxScale=${this.#maxScale}`);
       }
     });
 
@@ -531,6 +522,13 @@ class Lightbox {
     });
   }
 
+  /**
+   * Public method to refresh the arrow states.
+   */
+  refreshArrows() {
+    this.#updateArrowStyles();
+  }
+
   #updateArrowStyles() {
     const totalImages = this.#images.length;
     const isAtFirstImage = this.#index === 0;
@@ -561,7 +559,7 @@ class Lightbox {
       img.src = url;
     });
   }
-  
+
   isOpen() {
     return this.#el.style.display === "flex";
   }
@@ -570,8 +568,8 @@ class Lightbox {
     return this.#index;
   }
 
-  handleImageListChange(newImages) {
-    this.updateImageList(newImages, false);
+  handleImageListChange(newImageArray) {
+    this.updateImageList(newImageArray, false);
   }
 
   updateImageList(newImages, resetZoomPan = true) {
@@ -662,7 +660,7 @@ class ImageFeed {
     this.imageNodes = [];
     this.sortOrder = storage.getJSONVal("SortOrder", "ID");
     this.lightbox = new Lightbox(this.getAllImages.bind(this));
-    //this.lightbox.registerForUpdates(this.updateLightboxIfOpen.bind(this));
+    this.lightbox.registerForUpdates(this.updateLightboxIfOpen.bind(this));
     this.observer = null;
 
     setTimeout(() => {
@@ -685,28 +683,28 @@ class ImageFeed {
   }
 
   destroy() {
-      // Remove API event listeners
-      api.removeEventListener("execution_start", this.onExecutionStart.bind(this));
-      api.removeEventListener("executed", this.onExecuted.bind(this));
+    // Remove API event listeners
+    api.removeEventListener("execution_start", this.onExecutionStart.bind(this));
+    api.removeEventListener("executed", this.onExecuted.bind(this));
 
-      // Remove window resize listener
-      window.removeEventListener(
-          "resize",
-          debounce(() => this.adjustImageTray(), 200)
-      );
+    // Remove window resize listener
+    window.removeEventListener(
+      "resize",
+      debounce(() => this.adjustImageTray(), 200)
+    );
 
-      // Disconnect MutationObserver
-      if (this.observer) {
-          this.observer.disconnect();
-          this.observer = null;
-      }
+    // Disconnect MutationObserver
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
 
-      // Destroy Lightbox
-      if (this.lightbox) {
-          this.lightbox.destroy();
-      }
+    // Destroy Lightbox
+    if (this.lightbox) {
+      this.lightbox.destroy();
+    }
 
-      // Additional cleanup if necessary
+    // Additional cleanup if necessary
   }
 
   createMainElements() {
@@ -771,6 +769,18 @@ class ImageFeed {
       return;
     }
     this.handleExecuted(detail);
+    //this.updateLightboxIfOpen();
+  }
+
+  updateLightboxIfOpen() {
+    // Force a reflow to ensure DOM is up-to-date
+    this.forceReflow(this.imageFeed);
+
+    const currentImages = this.getAllImages();
+    this.lightbox.updateImageList(currentImages);
+    if (this.lightbox.isOpen()) {
+      this.lightbox.handleImageListChange(currentImages);
+    }
   }
 
   handleExecuted(detail) {
@@ -797,7 +807,6 @@ class ImageFeed {
 
     // Trigger a DOM update
     this.forceReflow(this.imageFeed);
-
     // Update lightbox immediately after DOM changes
     //this.updateLightboxIfOpen();
   }
@@ -875,7 +884,7 @@ class ImageFeed {
       this.forceReflow(batchContainer);
 
       // Update lightbox immediately after adding new image
-      //this.updateLightboxIfOpen();
+      this.updateLightboxIfOpen();
     } catch (error) {
       console.error("Error adding image to batch", error);
       const placeholderImg = createElement("img", {
@@ -1043,7 +1052,7 @@ class ImageFeed {
       this.imageFeed.style.left = "0";
       this.imageFeed.style.right = "0";
     }
-    
+
     // Fixed offset - This is a temporary hack until the UI devs stop changing things.
     this.imageFeed.style.width = `calc(100% - ${sideBarWidth + this.fixedOffset}px)`;
   }
@@ -1135,9 +1144,7 @@ class ImageFeed {
 
     // Always position at the top-right corner of the image tray
     buttonPanel.style.top = `${imageFeedRect.top + 10}px`;
-    buttonPanel.style.right = `${
-      window.innerWidth - imageFeedRect.right + 10
-    }px`;
+    buttonPanel.style.right = `${window.innerWidth - imageFeedRect.right + 10}px`;
 
     // Clear other positioning
     buttonPanel.style.bottom = "auto";
@@ -1760,9 +1767,9 @@ const lightboxStyles = `
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 75vw; 
-  height: 75vh; 
-  box-sizing: border-box;   
+  width: 75vw;
+  height: 75vh;
+  box-sizing: border-box;
 }
 
 .lightbox__link {
@@ -1770,9 +1777,9 @@ const lightboxStyles = `
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100%;  
+  width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.8);
   border: 2px solid yellow;
 }
 
