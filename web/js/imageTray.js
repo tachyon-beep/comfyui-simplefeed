@@ -42,16 +42,30 @@ function debounce(func, wait, immediate = false) {
   return debounced;
 }
 
+/**
+ * Creates a throttled function that only invokes the provided function at most once every
+ * specified number of milliseconds, ensuring consistent intervals between calls.
+ *
+ * @param {Function} func - The function to throttle.
+ * @param {number} limit - The number of milliseconds to wait before allowing another call.
+ * @returns {Function} - The throttled function.
+ */
 function throttle(func, limit) {
   let lastFunc;
   let lastRan;
+
   return function (...args) {
     const context = this;
+
+    // If 'lastRan' is not set, call the function immediately
     if (!lastRan) {
       func.apply(context, args);
       lastRan = Date.now();
     } else {
+      // Clear any pending scheduled call to reset the delay
       clearTimeout(lastFunc);
+
+      // Schedule a new call to 'func' after the remaining time, if applicable
       lastFunc = setTimeout(function () {
         if ((Date.now() - lastRan) >= limit) {
           func.apply(context, args);
