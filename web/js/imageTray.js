@@ -92,7 +92,20 @@ class Lightbox {
 
   constructor(getImagesFunction) {
     this.getImages = getImagesFunction;
-    this.panSpeedMultiplier = BASE_PAN_SPEED_MULTIPLIER; // Initialize pan speed multiplier
+
+    this.handleElClick = (e) => {
+      if (e.target === this.#el) this.close();
+    };
+    this.handleCloseBtnClick = () => this.close();
+    this.handlePrevClick = () => {
+      this.#triggerArrowClickEffect(this.#prev);
+      this.#update(-1);
+    };
+    this.handleNextClick = () => {
+      this.#triggerArrowClickEffect(this.#next);
+      this.#update(1);
+    };
+
 
     // Bind methods and store them
     this.startPanHandler = this.#startPanWithPointerLock.bind(this);
@@ -109,10 +122,10 @@ class Lightbox {
 
   destroy() {
     // Remove event listeners
-    this.#el.removeEventListener("click", this.closeHandler);
-    this.#closeBtn.removeEventListener("click", this.closeHandler);
-    this.#prev.removeEventListener("click", this.prevHandler);
-    this.#next.removeEventListener("click", this.nextHandler);
+    this.#el.removeEventListener("click", this.handleElClick);
+    this.#closeBtn.removeEventListener("click", this.handleCloseBtnClick);
+    this.#prev.removeEventListener("click", this.handlePrevClick);
+    this.#next.removeEventListener("click", this.handleNextClick);
     this.#img.removeEventListener('mousedown', this.startPanHandler);
     document.removeEventListener('mouseup', this.endPanHandler);
     document.removeEventListener('keydown', this.handleKeyDownHandler);
@@ -306,25 +319,10 @@ class Lightbox {
   }
 
   #addEventListeners() {
-    // Close lightbox when clicking outside the image area
-    this.#el.addEventListener("click", (e) => {
-      if (e.target === this.#el) this.close();
-    });
-
-    // Close button event listener
-    this.#closeBtn.addEventListener("click", () => this.close());
-
-    // Arrow navigation with click effect for the previous image
-    this.#prev.addEventListener("click", () => {
-      this.#triggerArrowClickEffect(this.#prev);
-      this.#update(-1);
-    });
-
-    // Arrow navigation with click effect for the next image
-    this.#next.addEventListener("click", () => {
-      this.#triggerArrowClickEffect(this.#next);
-      this.#update(1);
-    });
+    this.#el.addEventListener("click", this.handleElClick);
+    this.#closeBtn.addEventListener("click", this.handleCloseBtnClick);
+    this.#prev.addEventListener("click", this.handlePrevClick);
+    this.#next.addEventListener("click", this.handleNextClick);
 
     this.#img.addEventListener('mousedown', this.startPanHandler);
     document.addEventListener('mouseup', this.endPanHandler);
@@ -444,6 +442,12 @@ class Lightbox {
   }
 
   async #update(shift, resetZoomPan = true) {
+    // Ensure images are available
+    if (!Array.isArray(this.#images) || this.#images.length === 0) {
+      console.debug("Initialising Lightbox - No images available.");
+      return;
+    }
+
     let newIndex = this.#index + shift;
 
     // Implement wrapping behavior
@@ -471,11 +475,28 @@ class Lightbox {
     }
 
     const img = this.#images[this.#index];
+
+    // Ensure the image source is valid
+    if (!img) {
+      console.error(`Image at index ${this.#index} is undefined or invalid.`);
+      this.#spinner.style.display = "none";
+      this.#img.alt = "Image not available";
+      return;
+    }
+
     this.#img.style.opacity = 0;
     this.#spinner.style.display = "block";
     try {
       await this.#loadImage(img);
       this.#img.src = img;
+
+      // Await the main image's load event to ensure naturalWidth and naturalHeight are available
+      await new Promise((resolve, reject) => {
+        this.#img.onload = resolve;
+        this.#img.onerror = () => {
+          reject(new Error(`Failed to load image: ${img}`));
+        };
+      });
 
       this.originalWidth = this.#img.naturalWidth;
       this.originalHeight = this.#img.naturalHeight;
@@ -499,7 +520,6 @@ class Lightbox {
       }
 
       this.#img.style.opacity = 1;
-      console.log(`Image loaded: ${img}, originalWidth=${this.originalWidth}, originalHeight=${this.originalHeight}, fitScale=${fitScale}`);
     } catch (err) {
       console.error("Failed to load image:", img, err);
       this.#img.alt = "Failed to load image";
@@ -545,11 +565,7 @@ class Lightbox {
       img.src = url;
     });
   }
-
-  registerForUpdates(updateCallback) {
-    this.updateCallback = updateCallback;
-  }
-
+  
   isOpen() {
     return this.#el.style.display === "flex";
   }
@@ -650,7 +666,7 @@ class ImageFeed {
     this.imageNodes = [];
     this.sortOrder = storage.getJSONVal("SortOrder", "ID");
     this.lightbox = new Lightbox(this.getAllImages.bind(this));
-    this.lightbox.registerForUpdates(this.updateLightboxIfOpen.bind(this));
+    //this.lightbox.registerForUpdates(this.updateLightboxIfOpen.bind(this));
     this.observer = null;
 
     setTimeout(() => {
@@ -670,6 +686,31 @@ class ImageFeed {
 
     // Initialize visibility
     this.changeFeedVisibility(this.visible);
+  }
+
+  destroy() {
+      // Remove API event listeners
+      api.removeEventListener("execution_start", this.onExecutionStart.bind(this));
+      api.removeEventListener("executed", this.onExecuted.bind(this));
+
+      // Remove window resize listener
+      window.removeEventListener(
+          "resize",
+          debounce(() => this.adjustImageTray(), 200)
+      );
+
+      // Disconnect MutationObserver
+      if (this.observer) {
+          this.observer.disconnect();
+          this.observer = null;
+      }
+
+      // Destroy Lightbox
+      if (this.lightbox) {
+          this.lightbox.destroy();
+      }
+
+      // Additional cleanup if necessary
   }
 
   createMainElements() {
@@ -707,19 +748,6 @@ class ImageFeed {
       debounce(() => this.adjustImageTray(), 200)
     );
   }
-
-  updateLightboxIfOpen() {
-    // Force a reflow to ensure DOM is up-to-date
-    this.forceReflow(this.imageFeed);
-
-    const currentImages = this.getAllImages();
-    this.lightbox.updateImageList(currentImages);
-    if (this.lightbox.isOpen()) {
-      this.lightbox.handleImageListChange(currentImages);
-    }
-  }
-
-  // Add this method to your class
   forceReflow(element) {
     // Reading a property that requires layout will force a reflow
     return element.offsetHeight;
@@ -747,8 +775,6 @@ class ImageFeed {
       return;
     }
     this.handleExecuted(detail);
-    // Update lightbox immediately
-    this.updateLightboxIfOpen();
   }
 
   handleExecuted(detail) {
@@ -777,7 +803,7 @@ class ImageFeed {
     this.forceReflow(this.imageFeed);
 
     // Update lightbox immediately after DOM changes
-    this.updateLightboxIfOpen();
+    //this.updateLightboxIfOpen();
   }
 
   createNewBatch(newestToOldest, newBatchIdentifier) {
@@ -853,11 +879,11 @@ class ImageFeed {
       this.forceReflow(batchContainer);
 
       // Update lightbox immediately after adding new image
-      this.updateLightboxIfOpen();
+      //this.updateLightboxIfOpen();
     } catch (error) {
       console.error("Error adding image to batch", error);
       const placeholderImg = createElement("img", {
-        src: "path/to/placeholder.png",
+        src: "https://placehold.co/512", // Using a public placeholder service
         alt: "Image failed to load",
       });
       batchContainer.appendChild(placeholderImg);
@@ -1022,7 +1048,7 @@ class ImageFeed {
       this.imageFeed.style.right = "0";
     }
     
-    // Fixed offset - This is a hack until the UI devs stop adding random shit.
+    // Fixed offset - This is a temporary hack until the UI devs stop changing things.
     this.imageFeed.style.width = `calc(100% - ${sideBarWidth + this.fixedOffset}px)`;
   }
 
