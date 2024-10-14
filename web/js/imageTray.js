@@ -272,14 +272,10 @@ class Lightbox {
 
       this.#img.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.imageScale})`;
     }
-
-    console.log(`Image transform updated: translate(${this.panX}px, ${this.panY}px) scale(${this.imageScale})`);
   }
 
   #updateCursor() {
     const canPan = (this.imageScale > this.#minScale);
-    console.log(`Cursor update: canPan=${canPan}, isPanning=${this.isPanning}`);
-
     if (canPan) {
       this.#img.style.cursor = this.isPanning ? 'grabbing' : 'grab';
     } else {
