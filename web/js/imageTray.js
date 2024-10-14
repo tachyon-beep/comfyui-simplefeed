@@ -1,6 +1,6 @@
 ﻿/**
  * A simple image feed tray and lightbox for ComfyUI.
- * Version: 1.1.1
+ * Version: 1.2.0
  * Repository: https://github.com/tachyon-beep/comfyui-simplefeed
  * License: MIT License
  * Author: John Morrissey (tachyon-beep)
