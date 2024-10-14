@@ -18,6 +18,8 @@ A simple, configurable, and extensible image feed module for ComfyUI. Originally
   - **Black:** Inactive when only a single image is present.
   - **Grey:** Navigate between images.
   - **Orange:** Indicates the end of the feed; wraps to the start.
+- **Zoom and Pan:** Use the middle mouse wheel to zoom in and out. Hold Shift while scrolling to adjust zoom speed.
+  - **Panning:** Enabled once an image exceeds the lightbox size. Click and drag to pan the image, with Shift + Click for faster panning.
 
 ## Installation
 
@@ -43,13 +45,15 @@ A simple, configurable, and extensible image feed module for ComfyUI. Originally
 
 ## Examples
 ![Sample Image 1](https://github.com/user-attachments/assets/0b5a60db-d324-4250-ae33-007d09db2555)
-![Sample Image 2](https://github.com/user-attachments/assets/9ce4e33f-1b24-48a2-97c2-9903e764ee80)
+![Sample Image 2](https://github.com/user-attachments/assets/90944413-e9df-4dbe-a360-eb4bc4c7fd73)
 ![Sample Image 3](https://github.com/user-attachments/assets/3ee423fd-6992-45ea-a93e-96cf6bad0c34)
 
 ## Version History
+
 - **1.0.0 (15 May 2024):** Initial release.
 - **1.0.1 (8 Sep 2024):** Added to ComfyUI Manager Registry.
 - **1.1.0 (11 Sept 2024):** Substantial updates to fix bugs, implement user requests and integrate with the new ComfyUI.
+- **1.2.0 (15 October 2024):** Introduced zoom and pan functionality, improved support for non-standard resolutions, and general code refactoring.
 
 ## Quality Gate Status
 [![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=tachyon-beep_comfyui-simplefeed)](https://sonarcloud.io/summary/new_code?id=tachyon-beep_comfyui-simplefeed)
