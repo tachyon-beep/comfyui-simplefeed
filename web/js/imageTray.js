@@ -1,6 +1,6 @@
 ﻿/**
  * A simple image feed tray and lightbox for ComfyUI.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Repository: https://github.com/tachyon-beep/comfyui-simplefeed
  * License: MIT License
  * Author: John Morrissey (tachyon-beep)
@@ -15,6 +15,72 @@ import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { $el } from "../../../scripts/ui.js";
 
+/**
+ * Creates a debounced function that delays invoking the provided function until after
+ * the specified wait time has elapsed since the last time the debounced function was invoked.
+ * Optionally, it can invoke the function immediately on the leading edge.
+ *
+ * @param {Function} func - The function to debounce.
+ * @param {number} wait - The number of milliseconds to delay.
+ * @param {boolean} [immediate=false] - Whether to invoke the function on the leading edge.
+ * @returns {Function} - The debounced function.
+ */
+function debounce(func, wait, immediate = false) {
+  let timeout;
+  function debounced(...args) {
+    const context = this;
+    const later = () => {
+      timeout = null;
+      if (!immediate) func.apply(context, args);
+    };
+    const callNow = immediate && !timeout;
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+    if (callNow) func.apply(context, args);
+  }
+  debounced.cancel = () => clearTimeout(timeout);
+  return debounced;
+}
+
+/**
+ * Creates a throttled function that only invokes the provided function at most once every
+ * specified number of milliseconds, ensuring consistent intervals between calls.
+ *
+ * @param {Function} func - The function to throttle.
+ * @param {number} limit - The number of milliseconds to wait before allowing another call.
+ * @returns {Function} - The throttled function.
+ */
+function throttle(func, limit) {
+  let lastFunc;
+  let lastRan;
+
+  return function (...args) {
+    const context = this;
+
+    // If 'lastRan' is not set, call the function immediately
+    if (!lastRan) {
+      func.apply(context, args);
+      lastRan = Date.now();
+    } else {
+      // Clear any pending scheduled call to reset the delay
+      clearTimeout(lastFunc);
+
+      // Schedule a new call to 'func' after the remaining time, if applicable
+      lastFunc = setTimeout(function () {
+        if ((Date.now() - lastRan) >= limit) {
+          func.apply(context, args);
+          lastRan = Date.now();
+        }
+      }, limit - (Date.now() - lastRan));
+    }
+  };
+}
+
+const BASE_PAN_SPEED_MULTIPLIER = 1; // Normal speed
+const SHIFT_PAN_SPEED_MULTIPLIER = 3; // Double speed when Shift is held
+const BASE_ZOOM_MULTIPLIER = 1.2;
+const SHIFT_ZOOM_MULTIPLIER = 3.6;
+
 class Lightbox {
   #el;
   #img;
@@ -26,13 +92,208 @@ class Lightbox {
   #images = [];
   #index = 0;
 
+  #minScale = 1; // Dynamic minimum scale based on fit
+  #maxScale = 10; // Fixed maximum scale
+
+  isPanning = false;
+  panX = 0;
+  panY = 0;
+  mouseMovedDuringPan = false;
+
   constructor(getImagesFunction) {
     this.getImages = getImagesFunction;
+
+    // Event handlers for various elements
+    this.handleElClick = (e) => {
+      if (e.target === this.#el) this.close();
+    };
+    this.handleCloseBtnClick = () => this.close();
+    this.handlePrevClick = () => {
+      this.#triggerArrowClickEffect(this.#prev);
+      this.#update(-1);
+    };
+    this.handleNextClick = () => {
+      this.#triggerArrowClickEffect(this.#next);
+      this.#update(1);
+    };
+
+    // Bind methods and store them
+    this.startPanHandler = this.#startPanWithPointerLock.bind(this);
+    this.panHandler = this.#panWithPointerLock.bind(this);
+    this.endPanHandler = this.#endPanWithPointerLock.bind(this);
+    this.handleKeyDownHandler = this.#handleKeyDown.bind(this);
+    this.handleZoomHandler = throttle(this.#handleZoom.bind(this), 50);
+    this.resetZoomPanHandler = this.#resetZoomPan.bind(this);
+    this.pointerLockChangeHandler = this.#onPointerLockChange.bind(this);
+    this.pointerLockErrorHandler = this.#onPointerLockError.bind(this);
+
+    // Create DOM elements and add event listeners
     this.#createElements();
     this.#addEventListeners();
   }
 
+  destroy() {
+    // Remove event listeners
+    this.#el.removeEventListener("click", this.handleElClick);
+    this.#closeBtn.removeEventListener("click", this.handleCloseBtnClick);
+    this.#prev.removeEventListener("click", this.handlePrevClick);
+    this.#next.removeEventListener("click", this.handleNextClick);
+    this.#img.removeEventListener('mousedown', this.startPanHandler);
+    document.removeEventListener('mouseup', this.endPanHandler);
+    document.removeEventListener('keydown', this.handleKeyDownHandler);
+    this.#img.removeEventListener('wheel', this.handleZoomHandler);
+    this.#img.removeEventListener('dblclick', this.resetZoomPanHandler);
+    document.removeEventListener('pointerlockchange', this.pointerLockChangeHandler);
+    document.removeEventListener('pointerlockerror', this.pointerLockErrorHandler);
+    // Remove DOM elements
+    document.body.removeChild(this.#el);
+  }
+
+  registerForUpdates(updateCallback) {
+    this.updateCallback = updateCallback;
+  }
+
+  #handleZoom(e) {
+    e.preventDefault();
+    let delta = e.deltaY;
+
+    // Normalize deltaY for consistent behavior across browsers
+    if (delta === 0) {
+      delta = e.wheelDelta ? -e.wheelDelta : 0;
+    }
+
+    // Determine if shift key is pressed
+    const isModifierPressed = e.shiftKey;
+
+    // Set the zoom factor based on whether the shift key is pressed
+    let zoomFactor = isModifierPressed ? SHIFT_ZOOM_MULTIPLIER : BASE_ZOOM_MULTIPLIER;
+
+    if (delta < 0) {
+      // Zoom in
+      this.imageScale = Math.min(this.imageScale * zoomFactor, this.#maxScale);
+    } else if (delta > 0) {
+      // Zoom out
+      this.imageScale = Math.max(this.imageScale / zoomFactor, this.#minScale);
+    }
+
+    // Update pan bounds after scaling
+    this.#updatePanBounds();
+
+    // Update image transform and cursor
+    this.#updateImageTransform();
+    this.#updateCursor();
+
+    // Reset pan offsets if panning is not possible
+    if (this.maxPanX <= 1 && this.maxPanY <= 1) { // Using threshold
+      this.panX = 0;
+      this.panY = 0;
+      this.isPanning = false;
+    }
+  }
+
+  #startPanWithPointerLock(e) {
+    this.#updatePanBounds();
+    const canPan = (this.imageScale > this.#minScale);
+
+    if (canPan && e.button === 0) { // Left mouse button
+      e.preventDefault();
+      this.#img.requestPointerLock();
+    }
+  }
+
+  #panWithPointerLock(e) {
+    if (this.isPanning) {
+      // Determine if Shift key is held
+      const isShiftPressed = e.shiftKey;
+
+      // Set speed multiplier based on Shift key state
+      const speedMultiplier = isShiftPressed ? SHIFT_PAN_SPEED_MULTIPLIER : BASE_PAN_SPEED_MULTIPLIER;
+
+      // Apply pan speed multiplier to movement
+      const deltaX = e.movementX * speedMultiplier;
+      const deltaY = e.movementY * speedMultiplier;
+
+      this.panX += deltaX;
+      this.panY += deltaY;
+
+      this.mouseMovedDuringPan = true;
+
+      // Constrain panX and panY within bounds
+      this.panX = Math.min(Math.max(this.panX, -this.maxPanX), this.maxPanX);
+      this.panY = Math.min(Math.max(this.panY, -this.maxPanY), this.maxPanY);
+
+      this.#updateImageTransform();
+    }
+  }
+
+  #endPanWithPointerLock() {
+    if (this.isPanning) {
+      document.exitPointerLock();
+    }
+  }
+
+  #updatePanBounds() {
+    // Panning is only possible if imageScale > minScale
+    if (this.imageScale <= this.#minScale) {
+      // Panning is not possible
+      this.maxPanX = 0;
+      this.maxPanY = 0;
+      return;
+    }
+
+    // Get the dimensions of the container and the scaled image
+    const containerRect = this.#link.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+
+    const scaledImageWidth = this.originalWidth * this.imageScale;
+    const scaledImageHeight = this.originalHeight * this.imageScale;
+
+    // Calculate the maximum allowable panning distances
+    this.maxPanX = Math.max((scaledImageWidth - containerWidth) / 2, 0);
+    this.maxPanY = Math.max((scaledImageHeight - containerHeight) / 2, 0);
+  }
+
+  #resetZoomPan() {
+    // Reset zoom level and pan offsets to default values
+    this.imageScale = this.#minScale;
+    this.panX = 0;
+    this.panY = 0;
+    this.isPanning = false;
+
+    // Update the transform and cursor
+    this.#updateImageTransform();
+    this.#updateCursor();
+  }
+
+  #updateImageTransform() {
+    if (this.imageScale <= this.#minScale) {
+      // Reset pan and scale if at minimum scale
+      this.panX = 0;
+      this.panY = 0;
+      this.#img.style.transform = `scale(${this.#minScale})`;
+    } else {
+      // Constrain panX and panY within bounds
+      this.panX = Math.min(Math.max(this.panX, -this.maxPanX), this.maxPanX);
+      this.panY = Math.min(Math.max(this.panY, -this.maxPanY), this.maxPanY);
+
+      // Apply translation and scaling to the image
+      this.#img.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.imageScale})`;
+    }
+  }
+
+  #updateCursor() {
+    // Update cursor style depending on whether panning is possible
+    const canPan = (this.imageScale > this.#minScale);
+    if (canPan) {
+      this.#img.style.cursor = this.isPanning ? 'grabbing' : 'grab';
+    } else {
+      this.#img.style.cursor = 'auto';
+    }
+  }
+
   #createElements() {
+    // Create the lightbox container element
     this.#el = this.#createElement("div", "lightbox");
     this.#closeBtn = this.#createElement("div", "lightbox__close", this.#el);
 
@@ -45,9 +306,8 @@ class Lightbox {
     this.#next = this.#createElement("div", "lightbox__next", this.#el);
     this.#createElement("div", "arrow-inner", this.#next);
 
-    this.#link = this.#createElement("a", "lightbox__link", main, {
-      target: "_blank",
-    });
+    // Create the container for the image and spinner
+    this.#link = this.#createElement("div", "lightbox__link", main);
 
     this.#spinner = this.#createElement("div", "lightbox__spinner", this.#link);
     this.#img = this.#createElement("img", "lightbox__img", this.#link);
@@ -55,6 +315,7 @@ class Lightbox {
   }
 
   #createElement(tag, className, parent, attrs = {}) {
+    // Helper function to create and configure a DOM element
     const el = document.createElement(tag);
     el.className = className;
     if (parent) parent.appendChild(el);
@@ -65,31 +326,66 @@ class Lightbox {
   }
 
   #addEventListeners() {
-    // Close lightbox when clicking outside the image area
-    this.#el.addEventListener("click", (e) => {
-      if (e.target === this.#el) this.close();
-    });
+    // Add event listeners for various elements in the lightbox
+    this.#el.addEventListener("click", this.handleElClick);
+    this.#closeBtn.addEventListener("click", this.handleCloseBtnClick);
+    this.#prev.addEventListener("click", this.handlePrevClick);
+    this.#next.addEventListener("click", this.handleNextClick);
 
-    // Close button event listener
-    this.#closeBtn.addEventListener("click", () => this.close());
+    this.#img.addEventListener('mousedown', this.startPanHandler);
+    document.addEventListener('mouseup', this.endPanHandler);
+    document.addEventListener('keydown', this.handleKeyDownHandler);
+    this.#img.addEventListener('wheel', this.handleZoomHandler);
+    this.#img.addEventListener('dblclick', this.resetZoomPanHandler);
 
-    // Arrow navigation with click effect for the previous image
-    this.#prev.addEventListener("click", () => {
-      this.#triggerArrowClickEffect(this.#prev);
-      this.#update(-1);
-    });
+    // Add Pointer Lock specific event listeners
+    document.addEventListener('pointerlockchange', this.pointerLockChangeHandler);
+    document.addEventListener('pointerlockerror', this.pointerLockErrorHandler);
 
-    // Arrow navigation with click effect for the next image
-    this.#next.addEventListener("click", () => {
-      this.#triggerArrowClickEffect(this.#next);
-      this.#update(1);
+    // Handle resizing the window
+    window.addEventListener('resize', () => {
+      if (this.isOpen()) {
+        // Keep maxScale as a fixed constant
+        this.#maxScale = 10;
+
+        // Update pan bounds and transforms
+        this.#updatePanBounds();
+        this.#updateImageTransform();
+        this.#updateCursor();
+      }
     });
 
     // Stop propagation when clicking on the image itself (to avoid closing the lightbox)
     this.#img.addEventListener("click", (e) => e.stopPropagation());
 
-    // Handle keyboard navigation
-    document.addEventListener("keydown", this.#handleKeyDown.bind(this));
+    // Prevent context menu when panning
+    this.#img.addEventListener('contextmenu', (e) => {
+      if (this.isPanning) {
+        e.preventDefault();
+      }
+    });
+  }
+
+  #onPointerLockChange() {
+    // Handle pointer lock changes (used for panning)
+    if (document.pointerLockElement === this.#img) {
+      this.isPanning = true;
+      this.mouseMovedDuringPan = false;
+      this.#img.style.cursor = 'grabbing';
+
+      // Add event listener for mouse movement during pointer lock
+      document.addEventListener('mousemove', this.panHandler);
+    } else {
+      this.isPanning = false;
+      this.#img.style.cursor = this.mouseMovedDuringPan ? 'grabbing' : 'grab';
+
+      // Remove the mousemove listener
+      document.removeEventListener('mousemove', this.panHandler);
+    }
+  }
+
+  #onPointerLockError() {
+    console.error('Pointer Lock failed.');
   }
 
   forceReflow(element) {
@@ -98,6 +394,7 @@ class Lightbox {
   }
 
   #triggerArrowClickEffect(arrowElement) {
+    // Trigger a visual effect on arrow click
     const innerArrow = arrowElement.querySelector(".arrow-inner");
 
     if (innerArrow) {
@@ -117,6 +414,7 @@ class Lightbox {
   }
 
   #handleKeyDown(event) {
+    // Handle key presses for navigation and closing
     if (this.#el.style.display === "none") return;
     switch (event.key) {
       case "ArrowLeft":
@@ -134,6 +432,7 @@ class Lightbox {
   }
 
   show(images, index = 0) {
+    // Show the lightbox with the specified images and starting index
     this.#images = images;
     this.#index = index;
     this.#updateArrowStyles();
@@ -143,36 +442,96 @@ class Lightbox {
   }
 
   close() {
+    // Close the lightbox with a fade-out effect
     this.#el.style.opacity = 0;
-    setTimeout(() => (this.#el.style.display = "none"), 200);
+    setTimeout(() => {
+      this.#el.style.display = "none";
+    }, 300); // Match the transition duration
   }
 
   initializeImages(images) {
+    // Initialize the image list
     this.#images = images;
   }
 
-  async #update(shift) {
+  async #update(shift, resetZoomPan = true) {
+    // Ensure images are available
+    if (!Array.isArray(this.#images) || this.#images.length === 0) {
+      console.debug("Initialising Lightbox - No images available.");
+      return;
+    }
+
     let newIndex = this.#index + shift;
 
-    // Implement wrapping behavior
+    // Implement wrapping behavior for navigation
     if (newIndex < 0) {
       newIndex = this.#images.length - 1; // Wrap to the last image
     } else if (newIndex >= this.#images.length) {
       newIndex = 0; // Wrap to the first image
     }
 
+    // Check if we are updating the same image without needing to reset
+    const isSameImage = newIndex === this.#index;
+
     this.#index = newIndex;
 
     // Update arrow styles based on the current index
     this.#updateArrowStyles();
 
+    // If we're not resetting zoom/pan and the image hasn't changed, skip reloading
+    if (isSameImage && !resetZoomPan) {
+      // Only update pan bounds and cursor without reloading the image
+      this.#updatePanBounds();
+      this.#updateImageTransform();
+      this.#updateCursor();
+      return;
+    }
+
     const img = this.#images[this.#index];
+
+    // Ensure the image source is valid
+    if (!img) {
+      console.error(`Image at index ${this.#index} is undefined or invalid.`);
+      this.#spinner.style.display = "none";
+      this.#img.alt = "Image not available";
+      return;
+    }
+
     this.#img.style.opacity = 0;
     this.#spinner.style.display = "block";
     try {
       await this.#loadImage(img);
-      this.#link.href = img;
       this.#img.src = img;
+
+      // Await the main image's load event to ensure naturalWidth and naturalHeight are available
+      await new Promise((resolve, reject) => {
+        this.#img.onload = resolve;
+        this.#img.onerror = () => {
+          reject(new Error(`Failed to load image: ${img}`));
+        };
+      });
+
+      this.originalWidth = this.#img.naturalWidth;
+      this.originalHeight = this.#img.naturalHeight;
+
+      // Calculate fitScale to make the image as large as possible within the container
+      const containerRect = this.#link.getBoundingClientRect();
+      const containerWidth = containerRect.width;
+      const containerHeight = containerRect.height;
+
+      const widthRatio = containerWidth / this.originalWidth;
+      const heightRatio = containerHeight / this.originalHeight;
+      const fitScale = Math.min(widthRatio, heightRatio); // Allow scaling up and down
+
+      this.#minScale = fitScale;
+      this.#maxScale = 10; // Ensure maxScale remains fixed
+
+      if (resetZoomPan) {
+        this.imageScale = this.#minScale;
+        this.panX = 0;
+        this.panY = 0;
+      }
+
       this.#img.style.opacity = 1;
     } catch (err) {
       console.error("Failed to load image:", img, err);
@@ -180,6 +539,13 @@ class Lightbox {
     } finally {
       this.#spinner.style.display = "none";
     }
+
+    // Use requestAnimationFrame to ensure styles are applied before calculating pan bounds
+    requestAnimationFrame(() => {
+      this.#updatePanBounds();
+      this.#updateImageTransform();
+      this.#updateCursor();
+    });
   }
 
   #updateArrowStyles() {
@@ -198,13 +564,14 @@ class Lightbox {
       this.#prev.classList.remove("disabled");
       this.#next.classList.remove("disabled");
 
-      // Handle wrap classes
+      // Handle wrap classes for the arrows
       this.#prev.classList.toggle("lightbox__prev--wrap", isAtFirstImage);
       this.#next.classList.toggle("lightbox__next--wrap", isAtLastImage);
     }
   }
 
   #loadImage(url) {
+    // Load an image and return a promise that resolves on success
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = resolve;
@@ -213,42 +580,23 @@ class Lightbox {
     });
   }
 
-  registerForUpdates(updateCallback) {
-    this.updateCallback = updateCallback;
-  }
-
   isOpen() {
+    // Check if the lightbox is currently open
     return this.#el.style.display === "flex";
   }
 
   getCurrentIndex() {
+    // Get the current image index
     return this.#index;
   }
 
-  handleImageListChange(newImages) {
-    const currentImage = this.#images[this.#index];
-    this.#images = newImages;
-
-    const newIndex = this.#images.indexOf(currentImage);
-    if (newIndex === -1) {
-      // Current image was removed, show the next available image
-      this.#index = Math.min(this.#index, this.#images.length - 1);
-    } else {
-      this.#index = newIndex;
-    }
-
-    this.#updateArrowStyles();
-    this.#update(0);
+  handleImageListChange(newImageArray) {
+    // Update the image list without resetting zoom and pan
+    this.updateImageList(newImageArray, false);
   }
 
-  updateCurrentImage(newIndex) {
-    if (newIndex >= 0 && newIndex < this.#images.length) {
-      this.#index = newIndex;
-      this.#update(0); // Update without moving
-    }
-  }
-
-  updateImageList(newImages) {
+  updateImageList(newImages, resetZoomPan = true) {
+    // Update the image list and optionally reset zoom/pan
     const currentImage = this.#images[this.#index];
     this.#images = newImages;
 
@@ -260,7 +608,15 @@ class Lightbox {
     }
 
     this.#updateArrowStyles();
-    this.#update(0); // Update without moving
+    this.#update(0, resetZoomPan);
+  }
+
+  updateCurrentImage(newIndex) {
+    // Update the currently displayed image to the specified index
+    if (newIndex >= 0 && newIndex < this.#images.length) {
+      this.#index = newIndex;
+      this.#update(0); // Update without moving
+    }
   }
 }
 
@@ -317,14 +673,6 @@ const createElement = (type, options = {}) => {
   return element;
 };
 
-const debounce = (func, wait) => {
-  let timeout;
-  return function (...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-};
-
 class ImageFeed {
   constructor() {
     this.visible = storage.getJSONVal("Visible", true);
@@ -355,8 +703,22 @@ class ImageFeed {
     this.waitForSideToolbar();
     this.setupSettings();
 
-    // Initialize visibility
     this.changeFeedVisibility(this.visible);
+  }
+
+  destroy() {
+    api.removeEventListener("execution_start", this.onExecutionStart);
+    api.removeEventListener("executed", this.onExecuted);
+    window.removeEventListener("resize", this.adjustImageTrayDebounced);
+
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
+
+    if (this.lightbox) {
+      this.lightbox.destroy();
+    }
   }
 
   createMainElements() {
@@ -386,29 +748,12 @@ class ImageFeed {
 
   setupEventListeners() {
     api.addEventListener("execution_start", this.onExecutionStart.bind(this));
-    api.addEventListener("executed", (event) => {
-      this.onExecuted(event);
-    });
-    window.addEventListener(
-      "resize",
-      debounce(() => this.adjustImageTray(), 200)
-    );
+    api.addEventListener("executed", this.onExecuted.bind(this));
+    this.adjustImageTrayDebounced = debounce(() => this.adjustImageTray(), 200);
+    window.addEventListener("resize", this.adjustImageTrayDebounced);
   }
 
-  updateLightboxIfOpen() {
-    // Force a reflow to ensure DOM is up-to-date
-    this.forceReflow(this.imageFeed);
-
-    const currentImages = this.getAllImages();
-    this.lightbox.updateImageList(currentImages);
-    if (this.lightbox.isOpen()) {
-      this.lightbox.handleImageListChange(currentImages);
-    }
-  }
-
-  // Add this method to your class
   forceReflow(element) {
-    // Reading a property that requires layout will force a reflow
     return element.offsetHeight;
   }
 
@@ -421,10 +766,7 @@ class ImageFeed {
 
   onExecutionStart({ detail }) {
     const filterEnabled = storage.getJSONVal("FilterEnabled", false);
-    if (
-      filterEnabled &&
-      (!this.selectedNodeIds || this.selectedNodeIds.length === 0)
-    ) {
+    if (filterEnabled && (!this.selectedNodeIds || this.selectedNodeIds.length === 0)) {
       storage.setJSONVal("FilterEnabled", false);
     }
   }
@@ -434,8 +776,15 @@ class ImageFeed {
       return;
     }
     this.handleExecuted(detail);
-    // Update lightbox immediately
-    this.updateLightboxIfOpen();
+  }
+
+  updateLightboxIfOpen() {
+    this.forceReflow(this.imageFeed);
+    const currentImages = this.getAllImages();
+    this.lightbox.updateImageList(currentImages);
+    if (this.lightbox.isOpen()) {
+      this.lightbox.handleImageListChange(currentImages);
+    }
   }
 
   handleExecuted(detail) {
@@ -445,7 +794,7 @@ class ImageFeed {
     const filterEnabled = storage.getJSONVal("FilterEnabled", false);
     const newBatchIdentifier = detail.prompt_id;
 
-    if (detail.node?.includes?.(":")) {
+    if (detail.node?.includes(":")) {
       const n = app.graph.getNodeById(detail.node.split(":")[0]);
       if (n?.getInnerNodes) return;
     }
@@ -457,14 +806,8 @@ class ImageFeed {
     }
 
     this.addImagesToBatch(detail, filterEnabled, newestToOldest);
-
     this.checkAndRemoveExtraImageBatches();
-
-    // Trigger a DOM update
     this.forceReflow(this.imageFeed);
-
-    // Update lightbox immediately after DOM changes
-    this.updateLightboxIfOpen();
   }
 
   createNewBatch(newestToOldest, newBatchIdentifier) {
@@ -512,39 +855,27 @@ class ImageFeed {
 
   async addImageToBatch(src, batchContainer, newestToOldest) {
     try {
-      const baseUrl = `./view?filename=${encodeURIComponent(
-        src.filename
-      )}&type=${src.type}&subfolder=${encodeURIComponent(src.subfolder)}`;
+      const baseUrl = `./view?filename=${encodeURIComponent(src.filename)}&type=${src.type}&subfolder=${encodeURIComponent(src.subfolder)}`;
       const timestampedUrl = `${baseUrl}&t=${+new Date()}`;
       const img = await this.loadImage(timestampedUrl);
-      img.dataset.baseUrl = baseUrl; // Store the non-timestamped URL
-      const imageElement = this.createImageElement(
-        img,
-        timestampedUrl,
-        baseUrl
-      );
+      img.dataset.baseUrl = baseUrl;
+      const imageElement = this.createImageElement(img, timestampedUrl, baseUrl);
       const bars = batchContainer.querySelectorAll(".image-feed-vertical-bar");
 
       if (bars.length === 2) {
-        // This is the first batch with two bars
         bars[1].before(imageElement);
       } else if (newestToOldest) {
-        // For subsequent batches, newest first
         batchContainer.firstChild.after(imageElement);
       } else {
-        // For subsequent batches, oldest first
         batchContainer.appendChild(imageElement);
       }
 
-      // Force a reflow
       this.forceReflow(batchContainer);
-
-      // Update lightbox immediately after adding new image
       this.updateLightboxIfOpen();
     } catch (error) {
       console.error("Error adding image to batch", error);
       const placeholderImg = createElement("img", {
-        src: "path/to/placeholder.png",
+        src: "https://placehold.co/512",
         alt: "Image failed to load",
       });
       batchContainer.appendChild(placeholderImg);
@@ -553,14 +884,8 @@ class ImageFeed {
 
   createImageElement(img, timestampedUrl, baseUrl) {
     const imageElement = createElement("div", { className: "image-container" });
-    const anchor = createElement("a", {
-      target: "_blank",
-      href: timestampedUrl,
-      onclick: (e) =>
-        this.handleImageClick(e, timestampedUrl, img.dataset.baseUrl),
-    });
-    anchor.appendChild(img);
-    imageElement.appendChild(anchor);
+    img.onclick = (e) => this.handleImageClick(e, timestampedUrl, baseUrl);
+    imageElement.appendChild(img);
     return imageElement;
   }
 
@@ -568,18 +893,12 @@ class ImageFeed {
     e.preventDefault();
     const state = this.getCurrentState();
     const absoluteBaseUrl = new URL(baseUrl, window.location.origin).href;
-    const imageIndex = state.images.findIndex((img) =>
-      img.startsWith(absoluteBaseUrl)
-    );
+    const imageIndex = state.images.findIndex((img) => img.startsWith(absoluteBaseUrl));
     if (imageIndex > -1) {
       this.lightbox.show(state.images, imageIndex);
     } else {
-      console.error(
-        "Clicked image not found in the list. Available images:",
-        state.images
-      );
+      console.error("Clicked image not found in the list. Available images:", state.images);
       console.error("Clicked image URL:", absoluteBaseUrl);
-      // Fallback: If the exact URL is not found, open the lightbox with the first image
       if (state.images.length > 0) {
         this.lightbox.show(state.images, 0);
       }
@@ -590,32 +909,27 @@ class ImageFeed {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
-      img.onerror = reject;
+      img.onerror = () => reject(new Error(`Failed to load image at ${src}`));
       img.src = src;
     });
   }
 
   getAllImages() {
     const images = document.querySelectorAll(".tb-image-feed img");
-    const imageUrls = Array.from(images).map((img) => {
+    return Array.from(images).map((img) => {
       const url = new URL(img.src, window.location.origin);
-      url.searchParams.delete("t"); // Remove the timestamp parameter
+      url.searchParams.delete("t");
       return url.href;
     });
-    return imageUrls;
   }
 
   checkAndRemoveExtraImageBatches() {
     const maxImageBatches = storage.getVal("MaxFeedLength", 25);
-    const batches = Array.from(
-      this.imageList.querySelectorAll(".image-batch-container")
-    );
+    const batches = Array.from(this.imageList.querySelectorAll(".image-batch-container"));
 
     if (batches.length <= maxImageBatches) return;
 
-    batches.slice(maxImageBatches).forEach((batch) => {
-      batch.remove();
-    });
+    batches.slice(maxImageBatches).forEach((batch) => batch.remove());
   }
 
   clearImageFeed() {
@@ -637,28 +951,21 @@ class ImageFeed {
       return;
     }
 
-    this.imageFeed.classList.remove(
-      "tb-image-feed--top",
-      "tb-image-feed--bottom"
-    );
-    this.buttonPanel.classList.remove(
-      "tb-image-feed-btn-group--top",
-      "tb-image-feed-btn-group--bottom"
-    );
+    this.imageFeed.classList.remove("tb-image-feed--top", "tb-image-feed--bottom");
+    this.buttonPanel.classList.remove("tb-image-feed-btn-group--top", "tb-image-feed-btn-group--bottom");
 
     if (feedLocation === "top") {
       this.imageFeed.classList.add("tb-image-feed--top");
       this.buttonPanel.classList.add("tb-image-feed-btn-group--top");
-      this.buttonPanel.style.top = "10px"; // Set a default top position
-      this.buttonPanel.style.bottom = "auto"; // Clear bottom positioning
+      this.buttonPanel.style.top = "10px";
+      this.buttonPanel.style.bottom = "auto";
     } else {
       this.imageFeed.classList.add("tb-image-feed--bottom");
       this.buttonPanel.classList.add("tb-image-feed-btn-group--bottom");
-      this.buttonPanel.style.bottom = "10px"; // Set a default bottom position
-      this.buttonPanel.style.top = "auto"; // Clear top positioning
+      this.buttonPanel.style.bottom = "10px";
+      this.buttonPanel.style.top = "auto";
     }
 
-    // Adjust the tray and button positions
     this.adjustImageTray();
   }
 
@@ -680,12 +987,8 @@ class ImageFeed {
   }
 
   getSidebarInfo() {
-    const leftSideBar = document.querySelector(
-      ".comfyui-body-left .side-tool-bar-container"
-    );
-    const rightSideBar = document.querySelector(
-      ".comfyui-body-right .side-tool-bar-container"
-    );
+    const leftSideBar = document.querySelector(".comfyui-body-left .side-tool-bar-container");
+    const rightSideBar = document.querySelector(".comfyui-body-right .side-tool-bar-container");
     const sideBar = leftSideBar || rightSideBar;
     const sideBarWidth = sideBar?.offsetWidth || 0;
 
@@ -702,6 +1005,8 @@ class ImageFeed {
   }
 
   adjustFeedBasedOnSidebar(sideBarPosition, sideBarWidth) {
+    this.fixedOffset = 70;
+
     if (sideBarPosition === "left") {
       this.imageFeed.style.left = `${sideBarWidth}px`;
       this.imageFeed.style.right = "0";
@@ -712,14 +1017,12 @@ class ImageFeed {
       this.imageFeed.style.left = "0";
       this.imageFeed.style.right = "0";
     }
-    this.imageFeed.style.width = `calc(100% - ${sideBarWidth}px)`;
+
+    this.imageFeed.style.width = `calc(100% - ${sideBarWidth + this.fixedOffset}px)`;
   }
 
   updateFeedDimensions() {
-    const feedHeight =
-      parseInt(
-        getComputedStyle(this.imageFeed).getPropertyValue("--tb-feed-height")
-      ) || 300;
+    const feedHeight = parseInt(getComputedStyle(this.imageFeed).getPropertyValue("--tb-feed-height")) || 300;
     this.imageFeed.style.height = `${feedHeight}px`;
   }
 
@@ -734,17 +1037,11 @@ class ImageFeed {
 
   setFeedPosition(feedLocation, isMenuVisible, comfyuiMenu) {
     if (feedLocation === "top") {
-      const imageFeedTop = this.calculateTopPosition(
-        isMenuVisible,
-        comfyuiMenu
-      );
+      const imageFeedTop = this.calculateTopPosition(isMenuVisible, comfyuiMenu);
       this.imageFeed.style.top = `${imageFeedTop}px`;
       this.imageFeed.style.bottom = "auto";
     } else {
-      const imageFeedBottom = this.calculateBottomPosition(
-        isMenuVisible,
-        comfyuiMenu
-      );
+      const imageFeedBottom = this.calculateBottomPosition(isMenuVisible, comfyuiMenu);
       this.imageFeed.style.bottom = `${imageFeedBottom}px`;
       this.imageFeed.style.top = "auto";
     }
@@ -761,9 +1058,7 @@ class ImageFeed {
   calculateBottomPosition(isMenuVisible, comfyuiMenu) {
     if (isMenuVisible) {
       const menuRect = comfyuiMenu.getBoundingClientRect();
-      return Math.abs(window.innerHeight - menuRect.bottom) <= 1
-        ? menuRect.height
-        : 0;
+      return Math.abs(window.innerHeight - menuRect.bottom) <= 1 ? menuRect.height : 0;
     }
     return 0;
   }
@@ -800,24 +1095,18 @@ class ImageFeed {
 
     const imageFeedRect = this.imageFeed.getBoundingClientRect();
 
-    // Always position at the top-right corner of the image tray
     buttonPanel.style.top = `${imageFeedRect.top + 10}px`;
-    buttonPanel.style.right = `${
-      window.innerWidth - imageFeedRect.right + 10
-    }px`;
+    buttonPanel.style.right = `${window.innerWidth - imageFeedRect.right + 10}px`;
 
-    // Clear other positioning
     buttonPanel.style.bottom = "auto";
     buttonPanel.style.left = "auto";
   }
 
   waitForSideToolbar() {
-    const MAX_OBSERVATION_TIME = 5000; //Taking longer than five seconds to render the UI? Believe it or not, jail.
+    const MAX_OBSERVATION_TIME = 5000;
     let timeoutId;
     const observer = new MutationObserver((mutationsList, observer) => {
-      const sideToolBar = document.querySelector(
-        ".comfyui-body-left .side-tool-bar-container"
-      );
+      const sideToolBar = document.querySelector(".comfyui-body-left .side-tool-bar-container");
       if (sideToolBar) {
         this.adjustImageTray();
         observer.disconnect();
@@ -829,10 +1118,7 @@ class ImageFeed {
 
     timeoutId = setTimeout(() => {
       observer.disconnect();
-      console.error(
-        "Sidebar not found within the maximum observation time",
-        new Error("Timeout")
-      );
+      console.error("Sidebar not found within the maximum observation time", new Error("Timeout"));
     }, MAX_OBSERVATION_TIME);
   }
 
@@ -856,7 +1142,7 @@ class ImageFeed {
   }
 
   loadOverlay() {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       let overlay = document.getElementById("modalOverlay");
 
       if (!overlay) {
@@ -917,10 +1203,7 @@ class ImageFeed {
 
     const sortToggleButton = createElement("button", {
       className: "tb-image-feed-btn",
-      textContent:
-        storage.getJSONVal("SortOrder", "ID") === "ID"
-          ? "Sort by Name"
-          : "Sort by ID",
+      textContent: storage.getJSONVal("SortOrder", "ID") === "ID" ? "Sort by Name" : "Sort by ID",
       onclick: () => this.toggleSortOrder(sortToggleButton),
       disabled: !filterEnabled,
     });
@@ -933,9 +1216,7 @@ class ImageFeed {
   }
 
   updateCheckboxStates(enabled) {
-    const checkboxes = document.querySelectorAll(
-      '.node-list-item input[type="checkbox"], #custom-node-checkbox'
-    );
+    const checkboxes = document.querySelectorAll('.node-list-item input[type="checkbox"], #custom-node-checkbox');
     checkboxes.forEach((checkbox) => {
       checkbox.disabled = !enabled;
     });
@@ -947,20 +1228,15 @@ class ImageFeed {
 
     storage.setJSONVal("FilterEnabled", newFilterState);
 
-    filterToggleButton.textContent = newFilterState
-      ? "Disable Filter"
-      : "Enable Filter";
+    filterToggleButton.textContent = newFilterState ? "Disable Filter" : "Enable Filter";
     sortToggleButton.disabled = !newFilterState;
 
-    // Clear selected nodes when disabling filter
     if (!newFilterState) {
       this.selectedNodeIds = [];
       storage.setJSONVal("NodeFilter", this.selectedNodeIds);
     }
 
-    // Update checkbox states
     this.updateCheckboxStates(newFilterState);
-
     await this.redrawImageNodeList();
   }
 
@@ -969,18 +1245,13 @@ class ImageFeed {
     const newSortOrder = currentSortOrder === "ID" ? "Name" : "ID";
 
     storage.setJSONVal("SortOrder", newSortOrder);
-
-    sortToggleButton.textContent =
-      newSortOrder === "ID" ? "Sort by Name" : "Sort by ID";
-
+    sortToggleButton.textContent = newSortOrder === "ID" ? "Sort by Name" : "Sort by ID";
     await this.redrawImageNodeList();
   }
 
   updateImageNodes() {
     const nodes = Object.values(app.graph._nodes);
-    this.imageNodes = nodes.filter((node) =>
-      ELIGIBLE_NODES.includes(node.type)
-    );
+    this.imageNodes = nodes.filter((node) => ELIGIBLE_NODES.includes(node.type));
   }
 
   sortImageNodes() {
@@ -1026,9 +1297,7 @@ class ImageFeed {
 
       const label = createElement("label", {
         htmlFor: checkbox.id,
-        textContent: node.title
-          ? `${node.title} (ID: ${node.id})`
-          : `Node ID: ${node.id}`,
+        textContent: node.title ? `${node.title} (ID: ${node.id})` : `Node ID: ${node.id}`,
       });
 
       listItem.appendChild(checkbox);
@@ -1065,16 +1334,13 @@ class ImageFeed {
 
       nodeList.appendChild(customNodeItem);
     } else {
-      const customCheckbox = customNodeItem.querySelector(
-        'input[type="checkbox"]'
-      );
+      const customCheckbox = customNodeItem.querySelector('input[type="checkbox"]');
       if (customCheckbox) {
         customCheckbox.checked = this.selectedNodeIds.includes(-1);
         customCheckbox.disabled = !filterEnabled;
       }
     }
 
-    // Update all checkbox states
     this.updateCheckboxStates(filterEnabled);
   }
 
@@ -1151,8 +1417,7 @@ class ImageFeed {
         storage.setVal("MaxFeedLength", newValue);
         this.checkAndRemoveExtraImageBatches();
       },
-      tooltip:
-        "Maximum number of image batches to retain before the oldest start dropping from image feed.",
+      tooltip: "Maximum number of image batches to retain before the oldest start dropping from image feed.",
       attrs: {
         min: "25",
         max: "200",
@@ -1254,18 +1519,15 @@ const styles = `
     justify-content: center;
     align-items: center;
     height: 100%;
-    flex-shrink: 0; /* Prevent shrinking */
-  }
-
-  .image-container a {
-    display: flex;
-    height: 100%;
+    width: auto; /* Allow the container to adjust its width */
   }
 
   .image-container img {
-    height: 100%;
-    width: auto; /* Maintain aspect ratio */
-    object-fit: contain; /* Ensure entire image is visible */
+    max-height: 100%;
+    max-width: 100%;
+    height: auto;
+    width: auto;
+    object-fit: contain; /* Ensure the entire image is visible */
   }
 
   .image-feed-vertical-bar {
@@ -1418,10 +1680,9 @@ const lightboxStyles = `
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
   display: none;
   opacity: 0;
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 0.3s ease-in-out;
   z-index: 1000;
 }
 
@@ -1431,16 +1692,30 @@ const lightboxStyles = `
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  max-width: 90%;
-  max-height: 90%;
+  width: 75vw;
+  height: 75vh;
+  box-sizing: border-box;
 }
 
-/* The image itself */
+.lightbox__link {
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  border: 2px solid yellow;
+}
+
 .lightbox__img {
+  width: auto;
+  height: auto;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-out;
+  transform-origin: center center;
 }
 
 /* Base styles for arrow buttons */
