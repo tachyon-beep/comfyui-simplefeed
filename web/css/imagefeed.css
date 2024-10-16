@@ -1,0 +1,139 @@
+:root {
+--simplefeed-background-color-main: rgb(36, 39, 48);
+--simplefeed-separator-color: yellow;
+--simplefeed-border-color: #ccc;
+--simplefeed-text-color: #333;
+--simplefeed-highlight-filter: brightness(1.2);
+--simplefeed-feed-height: 300px;
+--simplefeed-left-offset: 0px;
+}
+
+.simplefeed-image-feed {
+position: fixed;
+display: flex;
+background-color: rgba(36, 39, 48, 0.8);
+z-index: 500;
+transition: all 0.3s ease;
+border: 1px solid var(--simplefeed-border-color);
+height: var(--simplefeed-feed-height);
+width: calc(100% - var(--simplefeed-left-offset));
+left: var(--simplefeed-left-offset);
+}
+
+.simplefeed-image-feed--bottom { bottom: 0; top: auto; }
+.simplefeed-image-feed--top { top: 0; bottom: auto; }
+
+.simplefeed-image-feed-list {
+display: flex;
+overflow-x: auto;  /* Enable horizontal scrolling */
+overflow-y: hidden;
+height: 100%;
+width: 100%;
+white-space: nowrap; /* Prevent wrapping */
+}
+
+.image-batch-container {
+display: flex;
+align-items: center;
+height: 100%;
+flex-shrink: 0; /* Prevent shrinking */
+}
+
+.image-container {
+display: flex;
+justify-content: center;
+align-items: center;
+height: 100%;
+width: auto; /* Allow the container to adjust its width */
+}
+
+.image-container img {
+max-height: 100%;
+max-width: 100%;
+height: auto;
+width: auto;
+object-fit: contain; /* Ensure the entire image is visible */
+}
+
+.image-feed-vertical-bar {
+height: 99.5%;
+width: 4px;
+background-color: var(--simplefeed-separator-color);
+}
+
+.simplefeed-image-feed-btn-group {
+position: fixed;
+display: flex;
+gap: 5px;
+z-index: 502;
+right: 10px;
+transition: top 0.3s ease, bottom 0.3s ease;
+}
+
+.simplefeed-image-feed-btn-group--top {
+top: 10px; /* This will be overridden by JavaScript */
+}
+
+.simplefeed-image-feed-btn-group--bottom {
+bottom: 10px; /* This will be overridden by JavaScript */
+}
+
+.simplefeed-image-feed-btn {
+padding: 8px 16px;
+font-size: 15px;
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+height: auto;
+width: auto;
+display: flex;
+align-items: center;
+justify-content: center;
+background-color: rgba(255, 255, 255, 0.8); 
+color: #333;
+border: 2px solid rgba(0, 0, 0, 0.1); 
+border-radius: 8px;
+box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.15);
+cursor: pointer;
+transition: all 0.3s ease;
+}
+
+.simplefeed-image-feed-btn:hover {
+background-color: #f0f0f0;
+transform: translateY(-2px);
+box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.simplefeed-image-feed-btn:active {
+transform: translateY(0);
+box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.simplefeed-image-feed-btn:focus {
+outline: none;
+box-shadow: 0 0 0 3px rgba(100, 150, 255, 0.5);
+}
+
+.simplefeed-close-btn {
+position: absolute;
+top: 5px;
+right: 10px;
+padding: 0 10px;
+font-size: 16px;
+height: 30px;
+width: 30px;
+display: flex;
+align-items: center;
+justify-content: center;
+border: 1px solid var(--simplefeed-border-color);
+border-radius: 5px;
+color: var(--simplefeed-text-color);
+cursor: pointer;
+z-index: 600;
+}
+
+.simplefeed-close-btn:hover {
+filter: var(--simplefeed-highlight-filter);
+}
+
+.simplefeed-close-btn:active {
+transform: translateY(1px);
+}

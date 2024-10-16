@@ -1,0 +1,58 @@
+
+.modalOverlay {
+position: fixed;
+inset: 0;
+background-color: rgba(0, 0, 0, 0.5);
+display: flex;
+justify-content: center;
+align-items: center;
+z-index: 9999;
+}
+
+.nodeSelectorPlaceholder {
+background-color: #000;
+color: #FFF;
+padding: 20px;
+border: 2px solid var(--simplefeed-separator-color);
+border-radius: 10px;
+box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+position: fixed;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+max-width: 600px;
+max-height: 80vh;
+overflow-y: auto;
+z-index: 10000;
+}
+
+.node-list-item {
+display: flex;
+align-items: center;
+margin-bottom: 10px;
+background-color: #111;
+padding: 10px;
+border-radius: 5px;
+}
+
+.node-list-item:nth-child(even) {
+background-color: #000;
+}
+
+.custom-node-item {
+display: flex;
+align-items: center;
+margin: 20px 0 10px;
+padding: 10px;
+border-radius: 5px;
+background-color: #000;
+border: 1px solid var(--simplefeed-separator-color);
+}
+
+.custom-label {
+color: #FFF;
+}
+
+.custom-label.disabled {
+color: #555;
+}
