@@ -82,3 +82,15 @@ export function throttle(func, limit) {
         }
     };
 }
+
+/**
+ * Loads a CSS file by creating a link element and appending it to the document head.
+ * @param {string} filename - The name of the CSS file to load.
+ */
+export function loadCSS(filename) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = filename;
+    document.head.appendChild(link);
+}

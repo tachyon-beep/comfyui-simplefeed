@@ -17,8 +17,8 @@
 import { api } from '../../../scripts/api.js';
 import { app } from '../../../scripts/app.js';
 import { $el } from '../../../scripts/ui.js';
-import { Lightbox } from './lightbox.js';
-import { debounce } from './utils.js';
+import { LightBox } from './lightBox.js';
+import { debounce, loadCSS } from './utils.js';
 
 const PREFIX = 'simpleTray.imageFeed.';
 const ELIGIBLE_NODES = [
@@ -30,10 +30,8 @@ const ELIGIBLE_NODES = [
   'KSampler SDXL (Eff.)',
 ];
 
-const BASE_PAN_SPEED_MULTIPLIER = 1; // Normal speed
-const SHIFT_PAN_SPEED_MULTIPLIER = 3; // Double speed when Shift is held
-const BASE_ZOOM_MULTIPLIER = 1.2;
-const SHIFT_ZOOM_MULTIPLIER = 3.6;
+loadCSS("extensions/comfyui-simplefeed/css/imagefeed.css");
+loadCSS("extensions/comfyui-simplefeed/css/modal.css");
 
 const storage = {
   getVal: (key, defaultValue) => {
@@ -89,7 +87,7 @@ class ImageFeed {
     this.selectedNodeIds = storage.getJSONVal('NodeFilter', []);
     this.imageNodes = [];
     this.sortOrder = storage.getJSONVal('SortOrder', 'ID');
-    this.lightbox = new Lightbox(this.getAllImages.bind(this));
+    this.lightbox = new LightBox(this.getAllImages.bind(this));
     this.lightbox.registerForUpdates(this.updateLightboxIfOpen.bind(this));
     this.observer = null;
 
@@ -186,11 +184,13 @@ class ImageFeed {
   updateLightboxIfOpen() {
     this.forceReflow(this.imageFeed);
     const currentImages = this.getAllImages();
-    this.lightbox.updateImageList(currentImages);
     if (this.lightbox.isOpen()) {
       this.lightbox.handleImageListChange(currentImages);
+    } else {
+      this.lightbox.updateImageList(currentImages);
     }
   }
+
 
   handleExecuted(detail) {
     if (!this.visible || !detail?.output?.images) {

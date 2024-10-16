@@ -17,35 +17,9 @@
 import { app } from '../../../scripts/app.js';
 import { ImageFeed } from './imageFeed.js';
 
-const CSS_FILES = [
-    '../css/imageFeed.css',
-    '../css/modal.css',
-    '../css/lightbox.css'
-];
-
-/**
- * Loads a CSS file by creating a link element and appending it to the document head.
- * @param {string} filename - The name of the CSS file to load.
- */
-function loadCSS(filename) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.type = 'text/css';
-    link.href = filename;
-    document.head.appendChild(link);
-}
-
-/**
- * Loads all required CSS files.
- */
-function loadAllCSS() {
-    CSS_FILES.forEach(loadCSS);
-}
-
 app.registerExtension({
     name: 'simpleTray.imageFeed',
     async setup() {
-        loadAllCSS();
         const imageFeed = new ImageFeed();
         await imageFeed.setup();
     },

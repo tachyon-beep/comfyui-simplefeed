@@ -1,5 +1,5 @@
 /**
- * lightbox.js - Lightbox functionality for the simple image feed in ComfyUI.
+ * lightBox.js - Lightbox functionality for the simple image feed in ComfyUI.
  * 
  * Version: 1.3.0
  * Repository: https://github.com/tachyon-beep/comfyui-simplefeed
@@ -14,14 +14,16 @@
 
 'use strict';
 
-import { throttle } from './utils.js';
+import { throttle, loadCSS } from './utils.js';
 
 const BASE_PAN_SPEED_MULTIPLIER = 1; // Normal speed
 const SHIFT_PAN_SPEED_MULTIPLIER = 3; // Double speed when Shift is held
 const BASE_ZOOM_MULTIPLIER = 1.2;
 const SHIFT_ZOOM_MULTIPLIER = 3.6;
 
-class Lightbox {
+loadCSS("extensions/comfyui-simplefeed/css/lightbox.css");
+
+class LightBox {
     #el;
     #img;
     #link;
@@ -566,4 +568,4 @@ class Lightbox {
     }
 }
 
-export { Lightbox };
+export { LightBox };
